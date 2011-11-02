@@ -2,6 +2,7 @@
 
 %{
 
+#include "hdl_tree.h"	//apuntador en union
 #include "tokens.h"
 #include <cstdlib>	//strtol()
 
@@ -101,4 +102,6 @@ IDENTIFIER [a-zA-z_][a-zA-z_0-9]*
 			  yylval.lexema = strdup(yytext);
 			  return ID;
 			}
+
+[ \t\n]+		/* nada */
 

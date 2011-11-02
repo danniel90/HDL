@@ -18,8 +18,8 @@ using namespace std;
 %node Expr %abstract %typedef
 
 %node BinaryExpr Expr %abstract = {
-	Expr *expr1;
-	Expr *expr2;
+	Expr *exprLeft;
+	Expr *exprRight;
 }
 
 %node GreaterExpr BinaryExpr
@@ -54,10 +54,10 @@ using namespace std;
 	int value;
 }
 
-%node DecNumExpr NumExpr
 %node BinNumExpr NumExpr
 %node OctNumExpr NumExpr
 %node HexNumExpr NumExpr
+%node DecNumExpr NumExpr
 
 %node IdExpr Expr = {
 	string value;
@@ -85,8 +85,8 @@ eval(SubExpr),
 eval(MultExpr),
 eval(DivExpr),
 eval(ModExpr) {
-	long v1 = expr1->eval();
-	long v2 = expr2->eval();
+	long v1 = exprLeft->eval();
+	long v2 = exprRight->eval();
 	
         switch (getKind()) {
 		case GreaterExpr_kind:		return v1 > v2;
