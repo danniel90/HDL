@@ -1,0 +1,135 @@
+%decls %{
+#include <string>
+
+using namespace std;
+
+%}
+
+%{
+#include "hdl_tree.h"
+#include <iostream>
+
+using namespace std;
+
+%}
+
+%option lang="C++"
+
+%node Expr %abstract %typedef
+
+%node BinaryExpr Expr %abstract = {
+	Expr *expr1;
+	Expr *expr2;
+}
+
+%node GreaterExpr BinaryExpr
+%node GreaterEqualExpr BinaryExpr
+%node LessExpr BinaryExpr
+%node LessEqualExpr BinaryExpr
+%node EqualExpr BinaryExpr
+%node NotEqualExpr BinaryExpr
+
+%node ShiftLeftExpr BinaryExpr
+%node ShiftRightExpr BinaryExpr
+
+%node AndExpr BinaryExpr
+%node OrExpr BinaryExpr
+%node XorExpr BinaryExpr
+%node XnorExpr BinaryExpr
+
+%node AddExpr BinaryExpr
+%node SubExpr BinaryExpr
+%node MultExpr BinaryExpr
+%node DivExpr BinaryExpr
+%node ModExpr BinaryExpr
+
+%node UnaryExpr Expr %abstract = {
+	Expr *expr;
+}
+
+%node NegateExpr UnaryExpr
+%node NotExpr UnaryExpr
+
+%node NumExpr Expr = {
+	int value;
+}
+
+%node DecNumExpr NumExpr
+%node BinNumExpr NumExpr
+%node OctNumExpr NumExpr
+%node HexNumExpr NumExpr
+
+%node IdExpr Expr = {
+	string value;
+}
+
+%operation %virtual long eval(Expr *this)
+
+eval(GreaterExpr),
+eval(GreaterEqualExpr),
+eval(LessExpr),
+eval(LessEqualExpr),
+eval(EqualExpr),
+eval(NotEqualExpr),
+
+eval(ShiftLeftExpr),
+eval(ShiftRightExpr),
+
+eval(AndExpr),
+eval(OrExpr),
+eval(XorExpr),
+eval(XnorExpr),
+
+eval(AddExpr),
+eval(SubExpr),
+eval(MultExpr),
+eval(DivExpr),
+eval(ModExpr) {
+	long v1 = expr1->eval();
+	long v2 = expr2->eval();
+	
+        switch (getKind()) {
+		case GreaterExpr_kind:		return v1 > v2;
+		case GreaterEqualExpr_kind:	return v1 >= v2;
+		case LessExpr_kind:		return v1 < v2;
+		case LessEqualExpr_kind:	return v1 <= v2;
+		case EqualExpr_kind:		return v1 == v2;
+		case NotEqualExpr_kind:		return v1 != v2;
+
+		case ShiftLeftExpr_kind:	return v1 << v2;
+		case ShiftRightExpr_kind:	return v1 >> v2;
+
+		case AndExpr_kind:		return v1 & v2;
+		case OrExpr_kind:		return v1 | v2;
+		case XorExpr_kind:		return v1 ^ v2;
+		case XnorExpr_kind:		return !(v1 ^ v2);
+
+		case AddExpr_kind:		return v1 + v2;
+		case SubExpr_kind:		return v1 - v2;
+		case MultExpr_kind:		return v1 * v2;
+		case DivExpr_kind:		return v1 / v2;
+		case ModExpr_kind:		return v1 % v2;
+		
+		default:			break;
+        }
+	return 0;
+}
+
+eval(NegateExpr),
+eval(NotExpr) {
+	long v = expr->eval();
+	
+	switch (getKind()) {
+		case NegateExpr_kind:		return -v;
+		case NotExpr_kind:		return !v;
+	}
+}
+
+eval(NumExpr) {
+	return value;
+}
+
+eval(IdExpr) {
+	return 1;
+}
+
