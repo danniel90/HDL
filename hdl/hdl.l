@@ -8,15 +8,12 @@
 
 %}
 
-BINARY_NUMBER \^b[0|1]+
-
-OCTAL_NUMBER \^o[0-7]+
-
-HEXADECIMAL_NUMBER \^[1-9A-F]+
-
-DECIMAL_NUMBER [0-9][0-9]*
-
-IDENTIFIER [a-zA-z_][a-zA-z_0-9]*
+IDENTIFIER		[a-zA-Z_][a-zA-Z_0-9]*
+BIN_NUM			"^b"[01]+
+OCT_NUM			"^o"[0-7]+
+DEC_NUM			"^d"[0-9]+
+HEX_NUM			"^h"[0-9A-Z]+
+NUM			[0-9]+
 
 %%
 
@@ -26,7 +23,11 @@ IDENTIFIER [a-zA-z_][a-zA-z_0-9]*
 ")"			{ return RIGHT_PAREN; }
 "{"			{ return LEFT_KEY; }
 "}"			{ return RIGHT_KEY; }
-
+"."			{ return DOT; }
+","			{ return COMMA; }
+";"			{ return SEMI; }
+":"			{ return COLON; }
+"->"			{ return ARROW; }
 
 "!"			{ return NOT; }
 "&"			{ return AND; }
@@ -46,6 +47,7 @@ IDENTIFIER [a-zA-z_][a-zA-z_0-9]*
 "<="			{ return LESS_EQUAL; }
 ">"			{ return GREATER; }
 ">="			{ return GREATER_EQUAL; }
+"="			{ return ASSIGN; }
 
 "module"		{ return MODULE; }
 "var"			{ return VAR; }
@@ -60,48 +62,59 @@ IDENTIFIER [a-zA-z_][a-zA-z_0-9]*
 "function"		{ return FUNCTION; }
 "truth_table"		{ return TRUTH_TABLE; }
 
-{BINARY_NUMBER}		{
-			  char *str1 = strdup(yytext);
-			  size_t size = strlen(str1) + 1;
 
-			  char *tmp = (char *)malloc(size);
-			  memcpy(str1 + 2, tmp, size - 2);
+{BIN_NUM}		{
+			  char *tmp = yytext;
+			  yylval.value = strtol(tmp + 2, &tmp, 2);
 
-			  yylval.value = strtol(tmp, &tmp, 2);
-			  return BIN_NUMBER; 
+//			  printf("BIN : %li\n", yylval.value);
+			  
+			  return BIN_NUMBER;
 			}
 
-{OCTAL_NUMBER}		{
-			  char *str1 = strdup(yytext);
-			  size_t size = strlen(str1) + 1;
+{OCT_NUM}		{
+			  char *tmp = yytext;
+			  yylval.value = strtol(tmp + 2, &tmp, 8);
 
-			  char *tmp = (char *)malloc(size);
-			  memcpy(str1 + 2, tmp, size - 2);
-
-			  yylval.value = strtol(tmp, &tmp, 8);
-			  return OCT_NUMBER; 
+//			  printf("OCT : %li\n", yylval.value);
+			
+			  return OCT_NUMBER;
 			}
 
-{HEXADECIMAL_NUMBER}	{
-			  char *str1 = strdup(yytext);
-			  size_t size = strlen(str1) + 1;
+{DEC_NUM}		{
+			  char *tmp = yytext;
 
-			  char *tmp = (char *)malloc(size);
-			  memcpy(str1 + 2, tmp, size - 2);
+			  yylval.value = strtol(tmp + 2, &tmp, 10);
+//			  printf("DEC : %li\n", yylval.value);
 
-			  yylval.value = strtol(tmp, &tmp, 16);
+			  return DEC_NUMBER;
+			}
+
+{HEX_NUM}		{
+			  char *tmp = yytext;
+			  yylval.value = strtol(tmp + 2, &tmp, 16);
+
+//			  printf("HEX : %li\n", yylval.value);
+
 			  return HEX_NUMBER;
 			}
 
-{DECIMAL_NUMBER}	{
+{NUM}			{
 			  yylval.value = atol(yytext);
-			  return DEC_NUMBER; 
+
+//			  printf("DEC : %li\n", yylval.value);
+
+			  return DEC_NUMBER;
 			}
 
-{IDENTIFIER}		{
+{IDENTIFIER}		{ 
 			  yylval.lexema = strdup(yytext);
+
+//			  printf("ID : %s\n",yylval.lexema);
+
 			  return ID;
 			}
 
-[ \t\n]+		/* nada */
+[ \t\n]+		{ /* nada */ }
+
 

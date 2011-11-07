@@ -1,7 +1,32 @@
 %decls %{
 #include <string>
+#include <vector>
 
 using namespace std;
+
+class vectorExpr;
+class vectorIds;
+%}
+
+%decls %end %{
+
+class vectorExpr{
+public:
+	vector<Expr*> *vector_exprs;
+	
+	vectorExpr(){ vector_exprs = new vector<Expr*>(); }
+	vectorExpr(vector<Expr*> *exprs) { vector_exprs = exprs; }
+	~vectorExpr() { delete vector_exprs; }
+};
+
+class vectorIds{
+public:
+	vector<string> *vector_ids;
+	
+	vectorIds(){ vector_ids = new vector<string>(); }
+	vectorIds(vector<string> *ids) { vector_ids = ids; }
+	~vectorIds() { delete vector_ids; }
+};
 
 %}
 
@@ -15,6 +40,68 @@ using namespace std;
 
 %option lang="C++"
 
+
+
+/*--------------------------------------------------------------------------------------
+					ACCESSO VARIABLES
+--------------------------------------------------------------------------------------*/
+
+
+
+
+/*--------------------------------------------------------------------------------------
+					SENTENCIAS
+--------------------------------------------------------------------------------------*/
+
+%node Statement %abstract %typedef
+
+%node StatementSeq Statement = {
+	Statement *stmnt1;
+	Statement *stmnt2;
+}
+
+%node AssignStmnt Statement = {
+	Expr *lvalue;
+	Expr *rvalue;
+}
+
+
+%node WhenStmnt Statement = {
+	Expr *cond;
+	Statement *stmnt1;
+	Statement *stmnt2;
+}
+
+//--------------------interpret()--------------------
+
+%operation %virtual void interpret(Statement *this)
+
+interpret(StatementSeq) {
+	if (stmnt1 != NULL)
+		stmnt1->interpret();
+	if (stmnt2 != NULL)
+		stmnt2->interpret();
+}
+
+interpret(AssignStmnt){
+	//nada
+}
+
+interpret(WhenStmnt){
+	int val = cond->eval();
+	if (val > 0){
+		if (stmnt1 != NULL)
+			stmnt1->interpret();
+	} else {
+		if (stmnt2 != NULL)
+			stmnt2->interpret();
+	}
+}
+
+
+/*--------------------------------------------------------------------------------------
+					Expresiones
+--------------------------------------------------------------------------------------*/
 %node Expr %abstract %typedef
 
 %node BinaryExpr Expr %abstract = {
@@ -59,9 +146,30 @@ using namespace std;
 %node HexNumExpr NumExpr
 %node DecNumExpr NumExpr
 
-%node IdExpr Expr = {
-	string value;
+%node FuncCallExpr Expr = {
+	string function_name;
+	vectorExpr *expressions;
 }
+
+%node ReferenceAccess Expr %abstract %typedef = {
+	string id;
+}
+
+%node IdExpr ReferenceAccess
+
+%node ArrayIndexExpr IdExpr = {
+	int index;
+}
+
+%node ArraySubSetExpr ArrayIndexExpr = {
+	int index2;
+}
+
+%node SetExpr Expr = {
+	vectorExpr *ids;
+}
+
+//--------------------eval()--------------------
 
 %operation %virtual long eval(Expr *this)
 
@@ -130,6 +238,27 @@ eval(NumExpr) {
 }
 
 eval(IdExpr) {
-	return 1;
+	return 1;//tmp
 }
 
+eval(FuncCallExpr) {
+	/*
+	cout << "funcCall exprs: " << endl;
+	for(int x = 0; x < expressions->vector_exprs->size(); x++)
+		cout << expressions->vector_exprs->at(x)->eval() << endl;
+	*/
+	return 1;//tmp
+}
+
+eval(ArrayIndexExpr) {
+//	cout << "refIndex: " << index << endl;
+	return 1;//tmp
+}
+
+eval(ArraySubSetExpr) {
+	return 1;//tmp
+}
+
+eval(SetExpr) {
+	return 1;//tmp
+}
