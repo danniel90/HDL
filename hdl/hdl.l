@@ -62,6 +62,8 @@ NUM			[0-9]+
 "function"		{ return FUNCTION; }
 "truth_table"		{ return TRUTH_TABLE; }
 
+"0"			{ yylval.binary = false; return ZERO; }
+"1"			{ yylval.binary = true; return ONE; }
 
 {BIN_NUM}		{
 			  char *tmp = yytext;

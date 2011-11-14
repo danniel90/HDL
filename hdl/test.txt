@@ -1,1 +1,18 @@
-lol[2] = 1;
+module HalfAdder_TT;
+var
+    a, b: input;
+    r: output;
+
+function halfadder: [a, b] -> [r]
+begin
+    truth_table {
+        [0, 0] -> [0]
+        [0, 1] -> [1]
+        [1, 0] -> [1]
+        [1, 1] -> [0]
+    }
+end
+
+begin
+    r = halfadder(a, b);
+end

@@ -6,11 +6,16 @@ using namespace std;
 
 class vectorExpr;
 class vectorIds;
+
+class vectorBool;
+class TruthTableElem;
+class TruthTable;
 %}
 
 %decls %end %{
 
-class vectorExpr{
+class vectorExpr
+{
 public:
 	vector<Expr*> *vector_exprs;
 	
@@ -19,20 +24,48 @@ public:
 	~vectorExpr() { delete vector_exprs; }
 };
 
-class vectorIds{
+class vectorIds
+{
 public:
 	vector<string> *vector_ids;
 	
-	vectorIds(){ vector_ids = new vector<string>(); }
+	vectorIds() { vector_ids = new vector<string>(); }
 	vectorIds(vector<string> *ids) { vector_ids = ids; }
 	~vectorIds() { delete vector_ids; }
+};
+
+class vectorBool
+{
+public:
+	vector<bool> *bools;
+	vectorBool() { bools = new vector<bool>(); }
+	~vectorBool() { delete bools; }
+};
+
+class TruthTableElem
+{
+public:
+	vectorBool *in;
+	vectorBool *out;
+	
+	TruthTableElem() { in = new vectorBool(); out = new vectorBool(); }
+	TruthTableElem(vectorBool *pin, vectorBool *pout) { in = pin; out = pout; }
+	~TruthTableElem() { delete in; delete out; }
+};
+
+class TruthTable
+{
+public:
+	vector<TruthTableElem*> *row;
+	TruthTable() { row = new vector<TruthTableElem*>(); }
+	~TruthTable() { delete row; }
 };
 
 %}
 
 %{
-#include "hdl_tree.h"
 #include <iostream>
+#include "hdl_tree.h"
 
 using namespace std;
 
@@ -40,13 +73,21 @@ using namespace std;
 
 %option lang="C++"
 
-
-
 /*--------------------------------------------------------------------------------------
-					ACCESSO VARIABLES
+					TIPOS
 --------------------------------------------------------------------------------------*/
 
+%node Tipo %abstract %typedef
 
+%node Output Tipo
+%node Input Tipo
+%node Temp Tipo
+
+%node Array Tipo = {
+	Tipo *t;
+	int upper;
+	int lower;
+}
 
 
 /*--------------------------------------------------------------------------------------
@@ -70,6 +111,24 @@ using namespace std;
 	Expr *cond;
 	Statement *stmnt1;
 	Statement *stmnt2;
+}
+
+%node TruthTableStmnt Statement = {
+	TruthTable *table;
+}
+
+%node Sentence %abstract %typedef
+
+%node SequenceSntnce Sentence = {
+	Sentence *sntnce1;
+	Sentence *sntnce2;
+}
+
+%node FunctionSntnce Sentence = {
+	string Id;
+	vectorIds *params;
+	vectorIds *returns;
+	Statement *body;
 }
 
 //--------------------interpret()--------------------
@@ -98,6 +157,9 @@ interpret(WhenStmnt){
 	}
 }
 
+interpret(TruthTableStmnt){
+	
+}
 
 /*--------------------------------------------------------------------------------------
 					Expresiones

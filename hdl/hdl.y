@@ -27,11 +27,17 @@ void yyerror(const char *message)
 
 %union{
 	char *lexema;
+	bool binary;
 	long value;
 	Expr *expr;
 	vectorExpr *exprs;
 	Statement *statement;
-	//vectorIds *ids;
+	vectorBool *bools;
+	vectorIds *ids;
+	TruthTableElem *TTelem;
+	Sentence *sntnce;
+	TruthTable *tt;
+	Tipo *tipo;
 } 
 
 %token MODULE VAR END INPUT OUTPUT TEMP WHEN THEN ELSE FUNCTION TRUTH_TABLE BEGIN1
@@ -40,12 +46,24 @@ void yyerror(const char *message)
 
 %token<value> BIN_NUMBER OCT_NUMBER DEC_NUMBER HEX_NUMBER NUMBER
 %token<lexema> ID
+%token<binary> ZERO ONE
 
 %type<expr> expr expr_xnor expr_xor expr_or expr_add expr_mult expr_shift expr_and factor term
 %type<exprs> expr_list
 
-%type<statement> statement_list statement assign_statement when_statement opt_else
-//%type<ids> id_list
+%type<statement> statement_list statement assign_statement when_statement opt_else function_body truth_table
+%type<ids> id_list
+
+%type<bools> binary_number_list
+%type<binary> binary_number
+
+%type<TTelem> truth_table_row
+%type<tt> truth_table_list
+
+%type<sntnce> function_declaration function_declaration_list
+
+
+//%type<tipo> variable_class
 
 %%
 
@@ -64,77 +82,112 @@ module_declaration:	MODULE ID
 /*===============================================
 	DECLARACION DE VARIABLES
 =================================================*/
-
-/*variable_declaration_list:	variable_declaration variable_declaration_list
+/*
+variable_declaration_list:	variable_declaration variable_declaration_list
 ;
 
-variable_declaration:	variable_list COLON variable_class SEMI
+variable_declaration:		variable_list COLON variable_class SEMI
 ;
 
-variables_list:	variable
-		|variable COMMA variable_list
+variables_list:			variable
+				|variable COMMA variable_list
 ;
 
-variable:	ID
-		|ID LEFT_BRACKET DEC_NUMBER DOT DOT DEC_NUMBER RIGHT_BRACKET
+variable:			ID
+				|ID LEFT_BRACKET DEC_NUMBER DOT DOT DEC_NUMBER RIGHT_BRACKET
 ;
 
-variable_class:	INPUT
-		|OUTPUT
-		|TEMP
-;*/
-
+variable_class:			INPUT								{ $$ = new Input($1); }
+				|OUTPUT								{ $$ = new Output($1); }
+				|TEMP								{ $$ = new Temp($1); }
+;
+*/
 /*===============================================
 	DECLARACION DE FUNCIONES
 =================================================*/
 
-/*function_declaration_list:	function_declaration function_declaration_list
+function_declaration_list:									{ $$ = NULL; }
+				|function_declaration function_declaration_list			{ $$ = new SequenceSntnce($1, $2); }
 ;
 
-function_declaration:	FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW 
-			LEFT_BRACKET id_list RIGHT_BRACKET
-			BEGIN1 function_body END
+function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW 
+				LEFT_BRACKET id_list RIGHT_BRACKET
+				BEGIN1 function_body END					{
+												  $$ = new FunctionSntnce($2,$5,$9,$12);
+												}
 ;
 
-id_list:	ID									{
-											  vectorIds *ids = new vectorIds();
-											  ids->vector_ids->push_back($1);
-											  $$ = ids;
-											}
-		|id_list COMMA ID								{
-											  vectorIds *ids = $1;
-											  ids->vector_ids->push_back($3);
-											  $$ = ids;
-											}
+id_list:		ID									{
+												  vectorIds *ids = new vectorIds();
+												  ids->vector_ids->push_back($1);
+												  $$ = ids;
+												}
+			|id_list COMMA ID							{
+												  vectorIds *ids = $1;
+												  ids->vector_ids->push_back($3);
+												  $$ = ids;
+												}
 ;
 
-function_body:	truth_table
-		|statement_list
+function_body:		truth_table								{ $$ = $1; }
+			|statement_list								{ $$ = $1; }
 ;
 
-truth_table:
-;*/
+truth_table: 		truth_table_list							{ $$ = new TruthTableStmnt($1); }
+;
+
+truth_table_list:	truth_table_row								{
+												  TruthTable *tt = new TruthTable();
+												  tt->row->push_back($1);
+												  $$ = tt;				
+												}
+			|truth_table_list truth_table_row					{
+												  TruthTable *tt = $1;
+												  tt->row->push_back($2);
+												  $$ = tt;
+												}
+;
+
+truth_table_row:	LEFT_BRACKET binary_number_list RIGHT_BRACKET ARROW
+			LEFT_BRACKET binary_number_list RIGHT_BRACKET				{ $$ = new TruthTableElem($2, $6); }
+;
+
+binary_number_list:	binary_number								{
+												  vectorBool *bools = new vectorBool();
+												  bools->bools->push_back($1);
+												  $$ = bools;
+												}
+			|binary_number_list COMMA binary_number					{
+												  vectorBool *bools = $1;
+												  bools->bools->push_back($3);
+												  $$ = bools;
+												}
+;
+
+binary_number:		ZERO									{ $$ = $1; }
+			|ONE									{ $$ = $1; }
+;
 
 /*===============================================
-		SENTENCIAS
+		STATEMENTS
 =================================================*/
 
-statement_list:	statement								{ $$ = $1; }
-		|statement statement_list						{ $$ = new StatementSeq($1, $2); }
+statement_list:		statement							{ $$ = $1; }
+			|statement statement_list					{ $$ = new StatementSeq($1, $2); }
 ;
 
-statement:	assign_statement SEMI							{ $$ = $1; }
-		|when_statement SEMI							{ $$ = $1; }
+statement:		assign_statement SEMI						{ $$ = $1; }
+			|when_statement SEMI						{ $$ = $1; }
 ;
 
 assign_statement:	expr ASSIGN expr						{ $$ = new AssignStmnt($1, $3); }
 ;
 
-when_statement:	WHEN expr THEN statement_list opt_else					{ $$ = new WhenStmnt($2, $4, $5); }
+when_statement:		WHEN expr THEN statement_list opt_else				{ $$ = new WhenStmnt($2, $4, $5); }
 ;
 
 opt_else:										{ $$ = NULL; }
-		|ELSE statement_list							{ $$ = $2; }
+			|ELSE statement_list						{ $$ = $2; }
 ;
 
 
@@ -157,13 +210,13 @@ expr_list:	expr								{
 										}
 ;
 
-expr:	expr LESS 		expr_xnor					{ $$ = new LessExpr($1, $3); }
-	|expr LESS_EQUAL 	expr_xnor					{ $$ = new LessEqualExpr($1, $3); }
-	|expr GREATER		expr_xnor					{ $$ = new GreaterExpr($1, $3); }
-	|expr GREATER_EQUAL	expr_xnor					{ $$ = new GreaterExpr($1, $3); }
-	|expr EQUAL		expr_xnor					{ $$ = new EqualExpr($1, $3); }
-	|expr NOT_EQUAL		expr_xnor					{ $$ = new NotEqualExpr($1, $3); }
-	|expr_xnor								{ $$ = $1; }
+expr:		expr LESS 		expr_xnor				{ $$ = new LessExpr($1, $3); }
+		|expr LESS_EQUAL 	expr_xnor				{ $$ = new LessEqualExpr($1, $3); }
+		|expr GREATER		expr_xnor				{ $$ = new GreaterExpr($1, $3); }
+		|expr GREATER_EQUAL	expr_xnor				{ $$ = new GreaterExpr($1, $3); }
+		|expr EQUAL		expr_xnor				{ $$ = new EqualExpr($1, $3); }
+		|expr NOT_EQUAL		expr_xnor				{ $$ = new NotEqualExpr($1, $3); }
+		|expr_xnor							{ $$ = $1; }
 ;
 
 expr_xnor:	expr_xnor XNOR expr_xor						{ $$ = new XnorExpr($1, $3); }
