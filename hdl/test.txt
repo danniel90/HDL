@@ -1,4 +1,4 @@
-module HalfAdder_TT;
+module HalfAdder_TT
 var
     a, b: input;
     r: output;

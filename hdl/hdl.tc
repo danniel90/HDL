@@ -1,15 +1,19 @@
 %decls %{
 #include <string>
 #include <vector>
+#include <map>
 
 using namespace std;
 
 class vectorExpr;
-class vectorIds;
+class vectorId;
 
 class vectorBool;
 class TruthTableElem;
 class TruthTable;
+
+class vectorMetaType;
+class VariableDeclarationList;
 %}
 
 %decls %end %{
@@ -17,21 +21,19 @@ class TruthTable;
 class vectorExpr
 {
 public:
-	vector<Expr*> *vector_exprs;
+	vector<Expr*> *exprs;
 	
-	vectorExpr(){ vector_exprs = new vector<Expr*>(); }
-	vectorExpr(vector<Expr*> *exprs) { vector_exprs = exprs; }
-	~vectorExpr() { delete vector_exprs; }
+	vectorExpr(){ exprs = new vector<Expr*>(); }
+	~vectorExpr() { delete exprs; }
 };
 
-class vectorIds
+class vectorId
 {
 public:
-	vector<string> *vector_ids;
+	vector<string> *ids;
 	
-	vectorIds() { vector_ids = new vector<string>(); }
-	vectorIds(vector<string> *ids) { vector_ids = ids; }
-	~vectorIds() { delete vector_ids; }
+	vectorId() { ids = new vector<string>(); }
+	~vectorId() { delete ids; }
 };
 
 class vectorBool
@@ -61,6 +63,20 @@ public:
 	~TruthTable() { delete row; }
 };
 
+class vectorMetaType{
+public:
+	vector<MetaType*> *metatypes;
+	vectorMetaType() { metatypes = new vector<MetaType*>(); }
+	~vectorMetaType() { delete metatypes; }
+};
+
+class VariableDeclarationList{
+public:
+	map<string, MetaType*> *tabla;
+	VariableDeclarationList() { tabla = new map<string, MetaType*>(); }
+	~VariableDeclarationList() { delete tabla; }
+};
+
 %}
 
 %{
@@ -83,10 +99,32 @@ using namespace std;
 %node Input Tipo
 %node Temp Tipo
 
-%node Array Tipo = {
-	Tipo *t;
+%node ArrayTipo Tipo = {
+	Tipo *tipo;
 	int upper;
 	int lower;
+}
+
+%node MetaType %abstract %typedef = {
+	string lexeme;
+	Tipo *tipo;
+}
+
+%node IdMetaType MetaType
+
+%node ArrayMetaType MetaType = {
+	int upper;
+	int lower;
+}
+
+/*--------------------------------------------------------------------------------------
+					PROGRAMA
+--------------------------------------------------------------------------------------*/
+%node Program %typedef = {
+	string moduleName;
+	VariableDeclarationList *variableDeclarationList;
+	Sentence *functionDeclaration;
+	Statement *main;
 }
 
 
@@ -126,8 +164,8 @@ using namespace std;
 
 %node FunctionSntnce Sentence = {
 	string Id;
-	vectorIds *params;
-	vectorIds *returns;
+	vectorId *params;
+	vectorId *returns;
 	Statement *body;
 }
 

@@ -33,11 +33,15 @@ void yyerror(const char *message)
 	vectorExpr *exprs;
 	Statement *statement;
 	vectorBool *bools;
-	vectorIds *ids;
+	vectorId *ids;
 	TruthTableElem *TTelem;
 	Sentence *sntnce;
 	TruthTable *tt;
 	Tipo *tipo;
+	MetaType *metatype;
+	vectorMetaType *metatypes;
+	VariableDeclarationList *variables;
+	Program *prgm;
 } 
 
 %token MODULE VAR END INPUT OUTPUT TEMP WHEN THEN ELSE FUNCTION TRUTH_TABLE BEGIN1
@@ -63,45 +67,76 @@ void yyerror(const char *message)
 %type<sntnce> function_declaration function_declaration_list
 
 
-//%type<tipo> variable_class
+%type<variables> variable_declaration_list
+%type<metatypes> variables_list variable_declaration
+%type<metatype> variable
+%type<tipo> variable_class
 
+%type<prgm> program
 %%
 
 /*==================================================================================
 				PROGRAMA
 ==================================================================================*/
 
-/*program:	module_declaration 
+program:	MODULE ID
 		VAR variable_declaration_list function_declaration_list
-		BEGIN1 statement_list END
+		BEGIN1 statement_list END							{ $$ = new Program($2, $4, $5, $7); }
 ;
-
-module_declaration:	MODULE ID
-;*/
 
 /*===============================================
 	DECLARACION DE VARIABLES
 =================================================*/
-/*
-variable_declaration_list:	variable_declaration variable_declaration_list
+
+variable_declaration_list:	variable_declaration						{
+												  VariableDeclarationList *vars = new VariableDeclarationList();
+												  vectorMetaType *mtypes = $1;
+												  for (int x = 0; x < mtypes->metatypes->size(); x++){
+													MetaType *mt = mtypes->metatypes->at(x);
+													vars->tabla->insert(pair<string, MetaType*>(mt->lexeme, mt));
+												  }
+												  $$ = vars;
+												}
+				|variable_declaration variable_declaration_list			{
+												  VariableDeclarationList *vars = $2;
+												  vectorMetaType *mtypes = $1;
+												  for (int x = 0; x < mtypes->metatypes->size(); x++){
+													MetaType *mt = mtypes->metatypes->at(x);
+													vars->tabla->insert(pair<string, MetaType*>(mt->lexeme, mt));
+												  }
+												  $$ = vars;
+												}
 ;
 
-variable_declaration:		variable_list COLON variable_class SEMI
+variable_declaration:		variables_list COLON variable_class SEMI			{
+												  vectorMetaType *mtypes = $1;
+												  for (int x = 0; x < mtypes->metatypes->size(); x++)
+													mtypes->metatypes->at(x)->tipo = $3;
+												  $$ = mtypes;
+												}
 ;
 
-variables_list:			variable
-				|variable COMMA variable_list
+variables_list:			variable							{
+												  vectorMetaType *vec = new vectorMetaType();
+												  vec->metatypes->push_back($1);
+												  $$ = vec;
+												}
+				|variables_list COMMA variable					{
+												  vectorMetaType *vec = $1;
+												  vec->metatypes->push_back($3);
+												  $$ = vec;
+												}
 ;
 
-variable:			ID
-				|ID LEFT_BRACKET DEC_NUMBER DOT DOT DEC_NUMBER RIGHT_BRACKET
+variable:			ID								{ $$ = new IdMetaType($1, NULL); }
+				|ID LEFT_BRACKET DEC_NUMBER DOT DOT DEC_NUMBER RIGHT_BRACKET	{ $$ = new ArrayMetaType($1, NULL, $3, $6); }
 ;
 
-variable_class:			INPUT								{ $$ = new Input($1); }
-				|OUTPUT								{ $$ = new Output($1); }
-				|TEMP								{ $$ = new Temp($1); }
+variable_class:			INPUT								{ $$ = new Input(); }
+				|OUTPUT								{ $$ = new Output(); }
+				|TEMP								{ $$ = new Temp(); }
 ;
-*/
+
 /*===============================================
 	DECLARACION DE FUNCIONES
 =================================================*/
@@ -118,13 +153,13 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 ;
 
 id_list:		ID									{
-												  vectorIds *ids = new vectorIds();
-												  ids->vector_ids->push_back($1);
+												  vectorId *ids = new vectorId();
+												  ids->ids->push_back($1);
 												  $$ = ids;
 												}
 			|id_list COMMA ID							{
-												  vectorIds *ids = $1;
-												  ids->vector_ids->push_back($3);
+												  vectorId *ids = $1;
+												  ids->ids->push_back($3);
 												  $$ = ids;
 												}
 ;
@@ -133,7 +168,7 @@ function_body:		truth_table								{ $$ = $1; }
 			|statement_list								{ $$ = $1; }
 ;
 
-truth_table: 		truth_table_list							{ $$ = new TruthTableStmnt($1); }
+truth_table: 		TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY			{ $$ = new TruthTableStmnt($3); }
 ;
 
 truth_table_list:	truth_table_row								{
@@ -200,12 +235,12 @@ opt_else:										{ $$ = NULL; }
 
 expr_list:	expr								{
 										  vectorExpr *exprList = new vectorExpr();
-										  exprList->vector_exprs->push_back($1);
+										  exprList->exprs->push_back($1);
 										  $$ = exprList;
 										}
 		|expr_list COMMA expr						{
 										  vectorExpr *exprList = $1;
-										  exprList->vector_exprs->push_back($3);
+										  exprList->exprs->push_back($3);
 										  $$ = exprList;
 										}
 ;

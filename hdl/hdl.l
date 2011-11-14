@@ -9,10 +9,19 @@
 %}
 
 IDENTIFIER		[a-zA-Z_][a-zA-Z_0-9]*
+
 BIN_NUM			"^b"[01]+
+BIN_NUM2		"^"[0-9]+"b"[01]+
+
 OCT_NUM			"^o"[0-7]+
+OCT_NUM2		"^"[0-9]+"o"[0-7]+
+
 DEC_NUM			"^d"[0-9]+
+DEC_NUM2			"^"[0-9]+"d"[0-9]+
+
 HEX_NUM			"^h"[0-9A-Z]+
+HEX_NUM2		"^"[0-9]+"h"[0-9A-Z]+
+
 NUM			[0-9]+
 
 %%
