@@ -26,62 +26,65 @@ void yyerror(const char *message)
 %}
 
 %union{
-	char *lexema;
-	bool binary;
-	long value;
-	Expr *expr;
-	vectorExpr *exprs;
-	Statement *statement;
-	vectorBool *bools;
-	vectorId *ids;
-	TruthTableElem *TTelem;
-	Sentence *sntnce;
-	TruthTable *tt;
+
+	Program *prgm;
+	VariableDeclarationList *variables;
 	Tipo *tipo;
 	MetaType *metatype;
+	Sentence *sntnce;
+	Statement *statement;
+	TruthTable *tt;
+	TruthTableElem *TTelem;
+	Expr *expr;
+
+	char *lexema;
+	long value;
+
+	vectorExpr *exprs;
+	vectorBool *bools;
+	vectorId *ids;
 	vectorMetaType *metatypes;
-	VariableDeclarationList *variables;
-	Program *prgm;
 } 
 
 %token MODULE VAR END INPUT OUTPUT TEMP WHEN THEN ELSE FUNCTION TRUTH_TABLE BEGIN1
 %token LEFT_BRACKET RIGHT_BRACKET LEFT_PAREN RIGHT_PAREN LEFT_KEY RIGHT_KEY DOT COMMA SEMI COLON ARROW
 %token NOT AND SHIFT_LEFT SHIFT_RIGHT MULT DIV MOD ADD SUB OR XOR XNOR EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL ASSIGN
 
-%token<value> BIN_NUMBER OCT_NUMBER DEC_NUMBER HEX_NUMBER NUMBER
-%token<lexema> ID
-%token<binary> ZERO ONE
 
-%type<expr> expr expr_xnor expr_xor expr_or expr_add expr_mult expr_shift expr_and factor term
-%type<exprs> expr_list
 
-%type<statement> statement_list statement assign_statement when_statement opt_else function_body truth_table
-%type<ids> id_list
-
-%type<bools> binary_number_list
-%type<binary> binary_number
-
-%type<TTelem> truth_table_row
-%type<tt> truth_table_list
-
-%type<sntnce> function_declaration function_declaration_list
-
+%type<prgm> program
 
 %type<variables> variable_declaration_list
 %type<metatypes> variables_list variable_declaration
 %type<metatype> variable
 %type<tipo> variable_class
 
-%type<prgm> program
+%type<sntnce> function_declaration function_declaration_list
+
+%type<TTelem> truth_table_row
+%type<tt> truth_table_list
+
+%type<bools> binary_number_list
+
+
+%type<statement> statement_list statement assign_statement when_statement opt_else function_body truth_table
+%type<ids> id_list
+
+%type<expr> expr expr_xnor expr_xor expr_or expr_add expr_mult expr_shift expr_and factor term
+%type<exprs> expr_list
+
+%token<value> BIN_NUMBER OCT_NUMBER DEC_NUMBER HEX_NUMBER NUMBER
+%token<lexema> ID
+
 %%
 
 /*==================================================================================
 				PROGRAMA
 ==================================================================================*/
 
-program:	MODULE ID
+program:	MODULE ID SEMI
 		VAR variable_declaration_list function_declaration_list
-		BEGIN1 statement_list END							{ $$ = new Program($2, $4, $5, $7); }
+		BEGIN1 statement_list END							{ $$ = new Program($2, $5, $6, $8); }
 ;
 
 /*===============================================
@@ -90,18 +93,18 @@ program:	MODULE ID
 
 variable_declaration_list:	variable_declaration						{
 												  VariableDeclarationList *vars = new VariableDeclarationList();
-												  vectorMetaType *mtypes = $1;
-												  for (int x = 0; x < mtypes->metatypes->size(); x++){
-													MetaType *mt = mtypes->metatypes->at(x);
+												  vectorMetaType *vector = $1;
+												  for (int x = 0; x < vector->metatypes->size(); x++){
+													MetaType *mt = vector->metatypes->at(x);
 													vars->tabla->insert(pair<string, MetaType*>(mt->lexeme, mt));
 												  }
 												  $$ = vars;
 												}
 				|variable_declaration variable_declaration_list			{
 												  VariableDeclarationList *vars = $2;
-												  vectorMetaType *mtypes = $1;
-												  for (int x = 0; x < mtypes->metatypes->size(); x++){
-													MetaType *mt = mtypes->metatypes->at(x);
+												  vectorMetaType *vector = $1;
+												  for (int x = 0; x < vector->metatypes->size(); x++){
+													MetaType *mt = vector->metatypes->at(x);
 													vars->tabla->insert(pair<string, MetaType*>(mt->lexeme, mt));
 												  }
 												  $$ = vars;
@@ -109,22 +112,22 @@ variable_declaration_list:	variable_declaration						{
 ;
 
 variable_declaration:		variables_list COLON variable_class SEMI			{
-												  vectorMetaType *mtypes = $1;
-												  for (int x = 0; x < mtypes->metatypes->size(); x++)
-													mtypes->metatypes->at(x)->tipo = $3;
-												  $$ = mtypes;
+												  vectorMetaType *vector = $1;
+												  for (int x = 0; x < vector->metatypes->size(); x++)
+													vector->metatypes->at(x)->tipo = $3;
+												  $$ = vector;
 												}
 ;
 
 variables_list:			variable							{
-												  vectorMetaType *vec = new vectorMetaType();
-												  vec->metatypes->push_back($1);
-												  $$ = vec;
+												  vectorMetaType *vector = new vectorMetaType();
+												  vector->metatypes->push_back($1);
+												  $$ = vector;
 												}
 				|variables_list COMMA variable					{
-												  vectorMetaType *vec = $1;
-												  vec->metatypes->push_back($3);
-												  $$ = vec;
+												  vectorMetaType *vector = $1;
+												  vector->metatypes->push_back($3);
+												  $$ = vector;
 												}
 ;
 
@@ -153,14 +156,14 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 ;
 
 id_list:		ID									{
-												  vectorId *ids = new vectorId();
-												  ids->ids->push_back($1);
-												  $$ = ids;
+												  vectorId *vector = new vectorId();
+												  vector->ids->push_back($1);
+												  $$ = vector;
 												}
 			|id_list COMMA ID							{
-												  vectorId *ids = $1;
-												  ids->ids->push_back($3);
-												  $$ = ids;
+												  vectorId *vector = $1;
+												  vector->ids->push_back($3);
+												  $$ = vector;
 												}
 ;
 
@@ -187,20 +190,16 @@ truth_table_row:	LEFT_BRACKET binary_number_list RIGHT_BRACKET ARROW
 			LEFT_BRACKET binary_number_list RIGHT_BRACKET				{ $$ = new TruthTableElem($2, $6); }
 ;
 
-binary_number_list:	binary_number								{
-												  vectorBool *bools = new vectorBool();
-												  bools->bools->push_back($1);
-												  $$ = bools;
+binary_number_list:	DEC_NUMBER								{
+												  vectorBool *vector = new vectorBool();
+												  vector->bools->push_back($1);
+												  $$ = vector;
 												}
-			|binary_number_list COMMA binary_number					{
-												  vectorBool *bools = $1;
-												  bools->bools->push_back($3);
-												  $$ = bools;
+			|binary_number_list COMMA DEC_NUMBER					{
+												  vectorBool *vector = $1;
+												  vector->bools->push_back($3);
+												  $$ = vector;
 												}
-;
-
-binary_number:		ZERO									{ $$ = $1; }
-			|ONE									{ $$ = $1; }
 ;
 
 /*===============================================
@@ -212,7 +211,7 @@ statement_list:		statement							{ $$ = $1; }
 ;
 
 statement:		assign_statement SEMI						{ $$ = $1; }
-			|when_statement SEMI						{ $$ = $1; }
+			|when_statement							{ $$ = $1; }
 ;
 
 assign_statement:	expr ASSIGN expr						{ $$ = new AssignStmnt($1, $3); }
@@ -230,18 +229,15 @@ opt_else:										{ $$ = NULL; }
 				EXPRESIONES
 ==================================================================================*/
 
-/*expr_prog:	expr								{ cout << $1->eval() << endl; }
-;*/
-
 expr_list:	expr								{
-										  vectorExpr *exprList = new vectorExpr();
-										  exprList->exprs->push_back($1);
-										  $$ = exprList;
+										  vectorExpr *vector = new vectorExpr();
+										  vector->exprs->push_back($1);
+										  $$ = vector;
 										}
 		|expr_list COMMA expr						{
-										  vectorExpr *exprList = $1;
-										  exprList->exprs->push_back($3);
-										  $$ = exprList;
+										  vectorExpr *vector = $1;
+										  vector->exprs->push_back($3);
+										  $$ = vector;
 										}
 ;
 
