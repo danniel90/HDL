@@ -5,10 +5,11 @@
 
 using namespace std;
 
+
 extern FILE *yyin;
 
-int yyparse();
 
+int yyparse();
 
 int main(int argc, char *argv[])
 {

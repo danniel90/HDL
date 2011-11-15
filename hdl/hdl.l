@@ -74,7 +74,8 @@ NUM			[0-9]+
 "truth_table"		{ return TRUTH_TABLE; }
 
 {NUM_SIZE}		{
-			  yylval.size = atoi(yytext);
+			  char *tmp = yytext;
+			  yylval.size = atoi(tmp + 1);
 //			  printf("SIZE : %i\n", yylval.size);
 			  return SIZE;
 			}

@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <bitset>
+#include <math.h>
 
 using namespace std;
 
@@ -16,7 +17,7 @@ class TruthTable;
 class vectorMetaType;
 class mapTipo;
 
-static mapTipo *TablaTipos;
+extern mapTipo *TablaTipos;
 
 %}
 
@@ -51,11 +52,11 @@ public:
 class TruthTableElem
 {
 public:
-	vectorBool *in;
-	vectorBool *out;
+	vector<bool> *in;
+	vector<bool> *out;
 	
-	TruthTableElem() { in = new vectorBool(); out = new vectorBool(); }
-	TruthTableElem(vectorBool *pin, vectorBool *pout) { in = pin; out = pout; }
+	TruthTableElem() { in = new vector<bool>(); out = new vector<bool>(); }
+	TruthTableElem(vector<bool> *pin, vector<bool> *pout) { in = pin; out = pout; }
 	~TruthTableElem() { delete in; delete out; }
 };
 
@@ -151,7 +152,8 @@ getTipo(IdMetaType){
 }
 
 getTipo(ArrayMetaType){
-	return new ArrayTipo(upper - lower, tipo, upper, lower);
+	int tam = (upper - lower) + 1;
+	return new ArrayTipo(tam, tipo, upper, lower);
 }
 
 /*--------------------------------------------------------------------------------------
@@ -164,30 +166,20 @@ getTipo(ArrayMetaType){
 	Statement *main;
 }
 
+%operation %virtual void Semantica(Program *this)
 
+Semantica(Program){
+	if (mapa == NULL)
+		cerr << "Tabla de Simbolos NULA!!" << endl << endl;
+	if (functionDeclaration != NULL)
+		functionDeclaration->validarSemantica();
+	cout << "validacion semantica de funciones DONE" << endl;
 
-/*--------------------------------------------------------------------------------------
-					SENTENCIAS
---------------------------------------------------------------------------------------*/
-
-/*%node Sentence %abstract %typedef
-
-%node SequenceSntnce Sentence = {
-	Sentence *sntnce1;
-	Sentence *sntnce2;
+	if (main == NULL)
+		cerr << "Falta funcion main del programa!!" << endl << endl;
+	main->validarSemantica();
+	cout << "validacion semantica del main DONE" << endl;
 }
-
-%node FunctionSntnce Sentence = {
-	string Id;
-	vectorId *params;
-	vectorId *returns;
-	Statement *body;
-}
-
-//--------------------validarSemantica()--------------------
-//%operation %virtual void validarSemantica(Sentence *this)
-
-
 
 /*--------------------------------------------------------------------------------------
 					STATEMENT
@@ -200,11 +192,19 @@ getTipo(ArrayMetaType){
 	Statement *stmnt2;
 }
 
-%node FunctionStmnt Statement = {
+
+%node FunctionStmntTT Statement = {
 	string Id;
 	vectorId *params;
 	vectorId *returns;
-	Statement *body;
+	TruthTable *ttable;
+}
+
+%node FunctionStmntST Statement = {
+	string Id;
+	vectorId *params;
+	vectorId *returns;
+	Statement *stmnts;
 }
 
 %node AssignStmnt Statement = {
@@ -215,12 +215,79 @@ getTipo(ArrayMetaType){
 
 %node WhenStmnt Statement = {
 	Expr *cond;
-	Statement *stmnt1;
-	Statement *stmnt2;
+	Statement *true_block;
+	Statement *false_block;
 }
 
-%node TruthTableStmnt Statement = {
-	TruthTable *table;
+//--------------------validarSemantica()--------------------
+
+%operation %virtual void validarSemantica(Statement *this)
+
+validarSemantica(SequenceStmnt){
+cout << "Entrando a validacion SEQ" << endl;
+	if (stmnt1 != NULL)
+		stmnt1->validarSemantica();
+	if (stmnt2 != NULL)
+		stmnt2->validarSemantica();
+cout << "Saliendo de validacion SEQ" << endl;
+}
+
+validarSemantica(FunctionStmntST){
+cout << "Entrando a validacion de FuncionST" << endl;
+	stmnts->validarSemantica();
+cout << "Saliendo de validacion de FuncionST" << endl;
+}
+
+validarSemantica(FunctionStmntTT){
+cout << "Entrando a validacion de FuncionTT" << endl;
+
+	long inCount = ttable->row->at(0)->in->size();
+	long paramCount = params->ids->size();
+	if (inCount != paramCount)
+		cerr << "Cantidad de variables de entrada incorrecta!! tabla:" << inCount << " params:" << paramCount << endl << endl;
+
+	long outCount = ttable->row->at(0)->out->size();
+	long retCount = returns->ids->size();
+	if (outCount != retCount)
+		cerr << "Cantidad de variables de salida incorrecta!! tabla:" << outCount << " returns:" << retCount << endl << endl;
+
+	long s = params->ids->size();
+	long filas = s*s;
+	if (ttable->row->size() != filas)
+		cerr << "Cantidad de filas incorrecta en thruth_table!! filas: " << filas << endl << endl;
+
+	/*cout << "Variables de entrada tabla:" << inCount << " params:" << paramCount << endl << endl;
+	cout << "Variables de salida tabla:" << outCount << " returns:" << retCount << endl << endl;
+	cout << "Cantidad de filas en thruth_table : " << filas << endl << endl;*/
+cout << "Saliendo de validacion de FuncionTT" << endl;
+}
+
+validarSemantica(AssignStmnt){
+cout << "Entrando a validacion ASSIGN" << endl;
+	Tipo *tlvalue = lvalue->validarSemantico();
+cout << "lvalue Semantica DONE" << endl;
+	Tipo *trvalue = rvalue->validarSemantico(); 
+cout << "rvalue Semantica DONE" << endl;
+
+	if (tlvalue->size != trvalue->size)
+		cerr << "Size de conjuntos distinto!! lval: " << tlvalue->size << " rvalue: " << trvalue->size << endl << endl;
+
+	if (tlvalue->getKind() == Input_kind)
+		cerr << "Conjuntos del lado izquierdo de la asignacion deben ser de tipo Output!!" << endl << endl;
+
+	if (trvalue->getKind() == Output_kind)
+		cerr << "Conjuntos del lado derecho de la asignacion deben ser de tipo Input!!" << endl << endl;
+
+cout << "Saliendo de validacion ASSIGN" << endl;
+}
+
+validarSemantica(WhenStmnt){
+	Tipo *tcond = cond->validarSemantico();
+
+	true_block->validarSemantica();
+
+	if (false_block != NULL)
+		false_block->validarSemantica();
 }
 
 //--------------------interpret()--------------------
@@ -347,10 +414,10 @@ validarSemantico(ModExpr) {
 	Tipo *t2 = exprRight->validarSemantico();
 	
 	if (t1->size != t2->size)
-		cerr << "Sizes incompatibles en la expresion!!" << endl << endl;
+		cerr << "Sizes incompatibles en la expresion!! t1: " << t1->size << " t2: " << t2->size << endl << endl;
 
 	if ((t1->getKind() != Input_kind) || (t2->getKind() != Input_kind))
-		cerr << "Operando deberia ser de tipo Input!!" << endl << endl;
+		cerr << "Operando deberia ser de tipo Input!! tk1: " << t1->getKind() << " tk2:" << t2->getKind() << endl << endl;
 
 	return t1;
 }
@@ -368,6 +435,7 @@ validarSemantico(NumExpr){
 }
 
 validarSemantico(FuncCallExpr){
+cout << "Entrando a validacion FUNCCALL" << endl;
 	if (TablaTipos->tabla_tipos->count(lexeme) == 0)
 		cerr << "No existe la funcion: " << lexeme << endl << endl;
 
@@ -384,18 +452,34 @@ validarSemantico(FuncCallExpr){
 
 	for (int x = 0; x < vector->exprs->size(); x++){
 		Tipo *tmp = vector->exprs->at(x)->validarSemantico();
-		if (tmp->getKind() != Input_kind)
-			cerr << "Parametros deberian ser de tipo Input!!" << endl << endl;
+		if (tmp->getKind() == Output_kind)
+			cerr << "Parametros deberian ser de tipo Input o Temp!! tmpk: " << tmp->getKind() << endl << endl;
 	}
 	
 	return tfunc->tipo;
+cout << "Saliendo de validacion FUNCCALL" << endl;
 }
 
 validarSemantico(IdExpr){
+cout << "Entrando a validarSemantico de ID" << endl;
+
 	if (TablaTipos->tabla_tipos->count(lexeme) == 0)
 		cerr << "No existe la variable: " << lexeme << endl << endl;
 
-	return TablaTipos->tabla_tipos->find(lexeme)->second;
+
+	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+
+cout << "Saliendo de validarSemantico de ID" << endl;	
+	if (t->getKind() == ArrayTipo_kind){
+		ArrayTipo *arr = reinterpret_cast<ArrayTipo*>(t);
+
+		switch(arr->tipo->getKind()){
+			case Output_kind:	return new Output(arr->size);
+			case Input_kind:	return new Input(arr->size);
+			default:		return new Temp(arr->size);
+		}
+	} else
+		return t;
 }
 
 validarSemantico(ArrayIndexExpr)
@@ -416,7 +500,7 @@ validarSemantico(ArrayIndexExpr)
 	if (index < arr->lower)
 		cerr << "Indice por debajo del limite inferior de arreglo!!" << endl << endl;
 
-	return t;
+	return arr->tipo;
 }
 
 validarSemantico(ArraySubSetExpr)
@@ -440,18 +524,22 @@ validarSemantico(ArraySubSetExpr)
 	if (index2 < arr->lower)
 		cerr << "Indice lower por debajo del limite inferior soportado!!" << endl << endl;
 
-	return t;
+	switch(arr->tipo->getKind()){
+		case Output_kind:	return new Output((index-index2)+1);
+		case Input_kind:	return new Input((index-index2)+1);
+		default:		return new Temp((index-index2)+1);
+	}
 }
 
 validarSemantico(SetExpr){
-	Tipo *t0 = vector->exprs->at(0)->validarSemantico();
-	
-	for (int x = 1; x < vector->exprs->size(); x++){
-		Tipo *t1 = vector->exprs->at(x)->validarSemantico();
-		if (t0->getKind() != t1->getKind() )
-			cerr << "Tipos de Conjunto son distintos!!!" << endl << endl;
+	int size = 0;
+	for (int x = 0; x < vector->exprs->size(); x++){
+		Tipo *t = vector->exprs->at(x)->validarSemantico();
+		size += t->size;
+		if (t->getKind() == Input_kind)
+			cerr << "Tipos de Conjunto deberia ser Output o Temp!!! tk: " << t->getKind() << endl << endl;
 	}
-	return  t0;
+	return  new Output(size);
 }
 
 

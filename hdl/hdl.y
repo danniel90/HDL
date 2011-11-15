@@ -13,9 +13,11 @@
 
 using namespace std;
 
-#define YYERROR_VERBOSE 1
+#define YYERROR_VERBOSE 1 
 
 int yylex();
+
+mapTipo *TablaTipos;
 
 void yyerror(const char *message)
 {
@@ -42,7 +44,8 @@ void yyerror(const char *message)
 	int size;
 
 	vectorExpr *exprs;
-	vectorBool *bools;
+//	vectorBool *bools;
+	vector<bool> *bools;
 	vectorId *ids;
 	vectorMetaType *metatypes;
 } 
@@ -60,15 +63,13 @@ void yyerror(const char *message)
 %type<metatype> variable
 %type<tipo> variable_class
 
-//%type<sntnce> function_declaration function_declaration_list
-
 %type<TTelem> truth_table_row
-%type<tt> truth_table_list
+%type<tt> truth_table_list truth_table
 
 %type<bools> binary_number_list
 
 
-%type<statement> statement_list statement assign_statement when_statement opt_else function_body truth_table function_declaration function_declaration_list
+%type<statement> statement_list statement assign_statement when_statement opt_else function_declaration function_declaration_list
 %type<ids> id_list
 
 %type<expr> expr expr_xnor expr_xor expr_or expr_add expr_mult expr_shift expr_and factor term lvalue
@@ -86,7 +87,12 @@ void yyerror(const char *message)
 
 program:	MODULE ID SEMI
 		VAR variable_declaration_list function_declaration_list
-		BEGIN1 statement_list END							{ $$ = new Program($2, $5, $6, $8); }
+		BEGIN1 statement_list END							{
+												  Program *p = new Program($2, $5, $6, $8);
+												  p->Semantica();
+												  cout << "Validacion Semantica Existosa!! :)" << endl;
+												  $$ = p;
+												}
 ;
 
 /*===============================================
@@ -94,10 +100,12 @@ program:	MODULE ID SEMI
 =================================================*/
 
 variable_declaration_list:	variable_declaration						{
-												  TablaTipos = new mapTipo();
+												  TablaTipos = new mapTipo(); cout << "Init Symbol Table" << endl;
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
+													if (TablaTipos->tabla_tipos->count(mt->lexeme) > 0)
+														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
 													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 												  }
 												  $$ = TablaTipos;
@@ -107,6 +115,8 @@ variable_declaration_list:	variable_declaration						{
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
+													if (vars->tabla_tipos->count(mt->lexeme) > 0)
+														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
 													vars->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 												  }
 												  $$ = vars;
@@ -147,13 +157,49 @@ variable_class:			INPUT								{ $$ = new Input(1); }
 =================================================*/
 
 function_declaration_list:									{ $$ = NULL; }
-				|function_declaration function_declaration_list			{ $$ = new SequenceStmnt($1, $2); }//new SequenceSntnce($1, $2); }
+				|function_declaration function_declaration_list			{ $$ = new SequenceStmnt($1, $2); }
 ;
 
 function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW 
 				LEFT_BRACKET id_list RIGHT_BRACKET
-				BEGIN1 function_body END					{
-												  $$ = new FunctionStmnt($2,$5,$9,$12);//new FunctionSntnce($2,$5,$9,$12);
+				BEGIN1 truth_table END						{
+												  FunctionTipo *tFunc = new FunctionTipo($5->ids->size(), new Input($9->ids->size()), $5, $9);
+												  if (TablaTipos == NULL) 
+													cout << "Init Symbol Table FUNC DEC!!!" << endl;
+												  if (TablaTipos->tabla_tipos->count($2) > 0)
+													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
+												  TablaTipos->tabla_tipos->insert(pair<string, Tipo*>($2, tFunc));
+												  $$ = new FunctionStmntTT($2,$5,$9,$12);
+												}
+				|FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW
+				LEFT_BRACKET id_list RIGHT_BRACKET
+				BEGIN1 statement_list END					{
+												  FunctionTipo *tFunc = new FunctionTipo($5->ids->size(), new Input($9->ids->size()), $5, $9);
+
+												  if (TablaTipos == NULL)
+													cout << "Init Symbol Table FUNC DEC!!!" << endl;
+
+												  if (TablaTipos->tabla_tipos->count($2) > 0)
+													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
+
+												  vectorId *vectorIn = $5;
+												  for (int x = 0; x < vectorIn->ids->size(); x++){
+													string id = vectorIn->ids->at(x);
+													if (TablaTipos->tabla_tipos->count(id) > 0)
+														cerr << "Variable " << id << " ya existe!!" << endl << endl;
+													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Input(1)));
+												  }
+
+												  vectorId *vectorOut = $9;
+												  for (int x = 0; x < vectorOut->ids->size(); x++){
+													string id = vectorOut->ids->at(x);
+													if (TablaTipos->tabla_tipos->count(id) > 0)
+														cerr << "Variable " << id << " ya existe!!" << endl << endl;
+													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Output(1)));
+												  }
+
+												  TablaTipos->tabla_tipos->insert(pair<string, Tipo*>($2, tFunc));
+												  $$ = new FunctionStmntST($2,$5,$9,$12);
 												}
 ;
 
@@ -169,11 +215,7 @@ id_list:			ID								{
 												}
 ;
 
-function_body:			truth_table							{ $$ = $1; }
-				|statement_list							{ $$ = $1; }
-;
-
-truth_table: 			TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY		{ $$ = new TruthTableStmnt($3); }
+truth_table: 			TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY		{ $$ = $3; }
 ;
 
 truth_table_list:		truth_table_row							{
@@ -193,14 +235,14 @@ truth_table_row:		LEFT_BRACKET binary_number_list RIGHT_BRACKET ARROW
 ;
 
 binary_number_list:		NUMBER								{
-												  vectorBool *vector = new vectorBool();
-												  vector->bools->push_back($1);
-												  $$ = vector;
+												  vector<bool> *vec = new vector<bool>();
+												  vec->push_back($1);
+												  $$ = vec;
 												}
-				|binary_number_list COMMA NUMBER				{
-												  vectorBool *vector = $1;
-												  vector->bools->push_back($3);
-												  $$ = vector;
+				|binary_number_list COMMA NUMBER				{												
+												  vector<bool> *vec = $1;
+												  vec->push_back($3);
+												  $$ = vec;
 												}
 ;
 
@@ -208,7 +250,7 @@ binary_number_list:		NUMBER								{
 		STATEMENTS
 =================================================*/
 
-statement_list:			statement							{ $$ = $1; }
+statement_list:											{ $$ = NULL; } 
 				|statement statement_list					{ $$ = new SequenceStmnt($1, $2); }
 ;
 
