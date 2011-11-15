@@ -104,8 +104,10 @@ variable_declaration_list:	variable_declaration						{
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
-													if (TablaTipos->tabla_tipos->count(mt->lexeme) > 0)
+													if (TablaTipos->tabla_tipos->count(mt->lexeme) > 0){
 														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
+														exit(1);
+													}
 													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 												  }
 												  $$ = TablaTipos;
@@ -115,8 +117,10 @@ variable_declaration_list:	variable_declaration						{
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
-													if (vars->tabla_tipos->count(mt->lexeme) > 0)
+													if (vars->tabla_tipos->count(mt->lexeme) > 0){
 														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
+														exit(1);
+													}
 													vars->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 												  }
 												  $$ = vars;
@@ -164,10 +168,11 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 				LEFT_BRACKET id_list RIGHT_BRACKET
 				BEGIN1 truth_table END						{
 												  FunctionTipo *tFunc = new FunctionTipo($5->ids->size(), new Input($9->ids->size()), $5, $9);
-												  if (TablaTipos == NULL) 
-													cout << "Init Symbol Table FUNC DEC!!!" << endl;
-												  if (TablaTipos->tabla_tipos->count($2) > 0)
+
+												  if (TablaTipos->tabla_tipos->count($2) > 0){
 													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
+													exit(1);
+												  }
 												  TablaTipos->tabla_tipos->insert(pair<string, Tipo*>($2, tFunc));
 												  $$ = new FunctionStmntTT($2,$5,$9,$12);
 												}
@@ -176,25 +181,29 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 				BEGIN1 statement_list END					{
 												  FunctionTipo *tFunc = new FunctionTipo($5->ids->size(), new Input($9->ids->size()), $5, $9);
 
-												  if (TablaTipos == NULL)
-													cout << "Init Symbol Table FUNC DEC!!!" << endl;
 
-												  if (TablaTipos->tabla_tipos->count($2) > 0)
+												  if (TablaTipos->tabla_tipos->count($2) > 0){
 													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
+													exit(1);
+												  }
 
 												  vectorId *vectorIn = $5;
 												  for (int x = 0; x < vectorIn->ids->size(); x++){
 													string id = vectorIn->ids->at(x);
-													if (TablaTipos->tabla_tipos->count(id) > 0)
+													if (TablaTipos->tabla_tipos->count(id) > 0){
 														cerr << "Variable " << id << " ya existe!!" << endl << endl;
+														exit(1);
+													}
 													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Input(1)));
 												  }
 
 												  vectorId *vectorOut = $9;
 												  for (int x = 0; x < vectorOut->ids->size(); x++){
 													string id = vectorOut->ids->at(x);
-													if (TablaTipos->tabla_tipos->count(id) > 0)
+													if (TablaTipos->tabla_tipos->count(id) > 0){
 														cerr << "Variable " << id << " ya existe!!" << endl << endl;
+														exit(1);
+													}
 													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Output(1)));
 												  }
 
