@@ -28,10 +28,10 @@ void yyerror(const char *message)
 %union{
 
 	Program *prgm;
-	VariableDeclarationList *variables;
+	mapTipo *variables;
 	Tipo *tipo;
 	MetaType *metatype;
-	Sentence *sntnce;
+//	Sentence *sntnce;
 	Statement *statement;
 	TruthTable *tt;
 	TruthTableElem *TTelem;
@@ -39,6 +39,7 @@ void yyerror(const char *message)
 
 	char *lexema;
 	long value;
+	int size;
 
 	vectorExpr *exprs;
 	vectorBool *bools;
@@ -59,7 +60,7 @@ void yyerror(const char *message)
 %type<metatype> variable
 %type<tipo> variable_class
 
-%type<sntnce> function_declaration function_declaration_list
+//%type<sntnce> function_declaration function_declaration_list
 
 %type<TTelem> truth_table_row
 %type<tt> truth_table_list
@@ -67,13 +68,14 @@ void yyerror(const char *message)
 %type<bools> binary_number_list
 
 
-%type<statement> statement_list statement assign_statement when_statement opt_else function_body truth_table
+%type<statement> statement_list statement assign_statement when_statement opt_else function_body truth_table function_declaration function_declaration_list
 %type<ids> id_list
 
-%type<expr> expr expr_xnor expr_xor expr_or expr_add expr_mult expr_shift expr_and factor term
+%type<expr> expr expr_xnor expr_xor expr_or expr_add expr_mult expr_shift expr_and factor term lvalue
 %type<exprs> expr_list
 
-%token<value> BIN_NUMBER OCT_NUMBER DEC_NUMBER HEX_NUMBER NUMBER
+%token<value> NUMBER
+%token<size> SIZE
 %token<lexema> ID
 
 %%
@@ -92,20 +94,20 @@ program:	MODULE ID SEMI
 =================================================*/
 
 variable_declaration_list:	variable_declaration						{
-												  VariableDeclarationList *vars = new VariableDeclarationList();
+												  TablaTipos = new mapTipo();
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
-													vars->tabla->insert(pair<string, MetaType*>(mt->lexeme, mt));
+													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 												  }
-												  $$ = vars;
+												  $$ = TablaTipos;
 												}
 				|variable_declaration variable_declaration_list			{
-												  VariableDeclarationList *vars = $2;
+												  mapTipo *vars = $2;
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
-													vars->tabla->insert(pair<string, MetaType*>(mt->lexeme, mt));
+													vars->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 												  }
 												  $$ = vars;
 												}
@@ -132,12 +134,12 @@ variables_list:			variable							{
 ;
 
 variable:			ID								{ $$ = new IdMetaType($1, NULL); }
-				|ID LEFT_BRACKET DEC_NUMBER DOT DOT DEC_NUMBER RIGHT_BRACKET	{ $$ = new ArrayMetaType($1, NULL, $3, $6); }
+				|ID LEFT_BRACKET NUMBER DOT DOT NUMBER RIGHT_BRACKET		{ $$ = new ArrayMetaType($1, NULL, $3, $6); }
 ;
 
-variable_class:			INPUT								{ $$ = new Input(); }
-				|OUTPUT								{ $$ = new Output(); }
-				|TEMP								{ $$ = new Temp(); }
+variable_class:			INPUT								{ $$ = new Input(1); }
+				|OUTPUT								{ $$ = new Output(1); }
+				|TEMP								{ $$ = new Temp(1); }
 ;
 
 /*===============================================
@@ -145,57 +147,57 @@ variable_class:			INPUT								{ $$ = new Input(); }
 =================================================*/
 
 function_declaration_list:									{ $$ = NULL; }
-				|function_declaration function_declaration_list			{ $$ = new SequenceSntnce($1, $2); }
+				|function_declaration function_declaration_list			{ $$ = new SequenceStmnt($1, $2); }//new SequenceSntnce($1, $2); }
 ;
 
 function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW 
 				LEFT_BRACKET id_list RIGHT_BRACKET
 				BEGIN1 function_body END					{
-												  $$ = new FunctionSntnce($2,$5,$9,$12);
+												  $$ = new FunctionStmnt($2,$5,$9,$12);//new FunctionSntnce($2,$5,$9,$12);
 												}
 ;
 
-id_list:		ID									{
+id_list:			ID								{
 												  vectorId *vector = new vectorId();
 												  vector->ids->push_back($1);
 												  $$ = vector;
 												}
-			|id_list COMMA ID							{
+				|id_list COMMA ID						{
 												  vectorId *vector = $1;
 												  vector->ids->push_back($3);
 												  $$ = vector;
 												}
 ;
 
-function_body:		truth_table								{ $$ = $1; }
-			|statement_list								{ $$ = $1; }
+function_body:			truth_table							{ $$ = $1; }
+				|statement_list							{ $$ = $1; }
 ;
 
-truth_table: 		TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY			{ $$ = new TruthTableStmnt($3); }
+truth_table: 			TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY		{ $$ = new TruthTableStmnt($3); }
 ;
 
-truth_table_list:	truth_table_row								{
+truth_table_list:		truth_table_row							{
 												  TruthTable *tt = new TruthTable();
 												  tt->row->push_back($1);
 												  $$ = tt;				
 												}
-			|truth_table_list truth_table_row					{
+				|truth_table_list truth_table_row				{
 												  TruthTable *tt = $1;
 												  tt->row->push_back($2);
 												  $$ = tt;
 												}
 ;
 
-truth_table_row:	LEFT_BRACKET binary_number_list RIGHT_BRACKET ARROW
-			LEFT_BRACKET binary_number_list RIGHT_BRACKET				{ $$ = new TruthTableElem($2, $6); }
+truth_table_row:		LEFT_BRACKET binary_number_list RIGHT_BRACKET ARROW
+				LEFT_BRACKET binary_number_list RIGHT_BRACKET			{ $$ = new TruthTableElem($2, $6); }
 ;
 
-binary_number_list:	DEC_NUMBER								{
+binary_number_list:		NUMBER								{
 												  vectorBool *vector = new vectorBool();
 												  vector->bools->push_back($1);
 												  $$ = vector;
 												}
-			|binary_number_list COMMA DEC_NUMBER					{
+				|binary_number_list COMMA NUMBER				{
 												  vectorBool *vector = $1;
 												  vector->bools->push_back($3);
 												  $$ = vector;
@@ -206,22 +208,28 @@ binary_number_list:	DEC_NUMBER								{
 		STATEMENTS
 =================================================*/
 
-statement_list:		statement							{ $$ = $1; }
-			|statement statement_list					{ $$ = new StatementSeq($1, $2); }
+statement_list:			statement							{ $$ = $1; }
+				|statement statement_list					{ $$ = new SequenceStmnt($1, $2); }
 ;
 
-statement:		assign_statement SEMI						{ $$ = $1; }
-			|when_statement							{ $$ = $1; }
+statement:			assign_statement SEMI						{ $$ = $1; }
+				|when_statement							{ $$ = $1; }
 ;
 
-assign_statement:	expr ASSIGN expr						{ $$ = new AssignStmnt($1, $3); }
+assign_statement:		lvalue ASSIGN expr						{ $$ = new AssignStmnt($1, $3); }
 ;
 
-when_statement:		WHEN expr THEN statement_list opt_else				{ $$ = new WhenStmnt($2, $4, $5); }
+lvalue:				ID								{ $$ = new IdExpr($1); }
+				|ID LEFT_BRACKET NUMBER RIGHT_BRACKET				{ $$ = new ArrayIndexExpr($1, $3); }
+				|ID LEFT_BRACKET NUMBER DOT DOT NUMBER RIGHT_BRACKET		{ $$ = new ArraySubSetExpr($1, $3, $6); }
+				|LEFT_BRACKET expr_list RIGHT_BRACKET				{ $$ = new SetExpr($2); }
 ;
 
-opt_else:										{ $$ = NULL; }
-			|ELSE statement_list						{ $$ = $2; }
+when_statement:			WHEN expr THEN statement_list opt_else				{ $$ = new WhenStmnt($2, $4, $5); }
+;
+
+opt_else:											{ $$ = NULL; }
+				|ELSE statement_list						{ $$ = $2; }
 ;
 
 
@@ -229,17 +237,8 @@ opt_else:										{ $$ = NULL; }
 				EXPRESIONES
 ==================================================================================*/
 
-expr_list:	expr								{
-										  vectorExpr *vector = new vectorExpr();
-										  vector->exprs->push_back($1);
-										  $$ = vector;
-										}
-		|expr_list COMMA expr						{
-										  vectorExpr *vector = $1;
-										  vector->exprs->push_back($3);
-										  $$ = vector;
-										}
-;
+//prg:		expr								{ cout << endl << $1->eval() << endl << endl; }
+//;
 
 expr:		expr LESS 		expr_xnor				{ $$ = new LessExpr($1, $3); }
 		|expr LESS_EQUAL 	expr_xnor				{ $$ = new LessEqualExpr($1, $3); }
@@ -288,16 +287,24 @@ factor:		SUB term							{ $$ = new NegateExpr($2); }
 ;
 
 term:		LEFT_PAREN expr RIGHT_PAREN					{ $$ = $2; }
-		|BIN_NUMBER							{ $$ = new BinNumExpr($1); }
-		|OCT_NUMBER							{ $$ = new OctNumExpr($1); }
-		|HEX_NUMBER							{ $$ = new HexNumExpr($1); }
-		|DEC_NUMBER							{ $$ = new DecNumExpr($1); }
-		|NUMBER								{ $$ = new DecNumExpr($1); }
+		|NUMBER								{ $$ = new NumExpr($1, 0); }
+		|SIZE NUMBER							{ $$ = new NumExpr($2, $1); }
 		|ID								{ $$ = new IdExpr($1); }
-		|ID LEFT_BRACKET DEC_NUMBER RIGHT_BRACKET			{ $$ = new ArrayIndexExpr($1, $3); }
-		|ID LEFT_BRACKET DEC_NUMBER DOT DOT DEC_NUMBER RIGHT_BRACKET	{ $$ = new ArraySubSetExpr($1, $3, $6); }
+		|ID LEFT_BRACKET NUMBER RIGHT_BRACKET				{ $$ = new ArrayIndexExpr($1, $3); }
+		|ID LEFT_BRACKET NUMBER DOT DOT NUMBER RIGHT_BRACKET		{ $$ = new ArraySubSetExpr($1, $3, $6); }
 		|LEFT_BRACKET expr_list RIGHT_BRACKET				{ $$ = new SetExpr($2); }
 		|ID LEFT_PAREN expr_list RIGHT_PAREN				{ $$ = new FuncCallExpr($1, $3); }
 ;
 
+expr_list:	expr								{
+										  vectorExpr *vector = new vectorExpr();
+										  vector->exprs->push_back($1);
+										  $$ = vector;
+										}
+		|expr_list COMMA expr						{
+										  vectorExpr *vector = $1;
+										  vector->exprs->push_back($3);
+										  $$ = vector;
+										}
+;
 

@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <bitset>
 
 using namespace std;
 
@@ -13,7 +14,10 @@ class TruthTableElem;
 class TruthTable;
 
 class vectorMetaType;
-class VariableDeclarationList;
+class mapTipo;
+
+static mapTipo *TablaTipos;
+
 %}
 
 %decls %end %{
@@ -70,11 +74,11 @@ public:
 	~vectorMetaType() { delete metatypes; }
 };
 
-class VariableDeclarationList{
+class mapTipo{
 public:
-	map<string, MetaType*> *tabla;
-	VariableDeclarationList() { tabla = new map<string, MetaType*>(); }
-	~VariableDeclarationList() { delete tabla; }
+	map<string, Tipo*> *tabla_tipos;
+	mapTipo() { tabla_tipos = new map<string, Tipo*>(); }
+	~mapTipo() { delete tabla_tipos; }
 };
 
 %}
@@ -93,17 +97,35 @@ using namespace std;
 					TIPOS
 --------------------------------------------------------------------------------------*/
 
-%node Tipo %abstract %typedef
+%node Tipo %abstract %typedef = {
+	int size;
+}
 
 %node Output Tipo
 %node Input Tipo
 %node Temp Tipo
+
 
 %node ArrayTipo Tipo = {
 	Tipo *tipo;
 	int upper;
 	int lower;
 }
+
+%node SetTipo Tipo = {
+	Tipo *tipo;
+}
+
+//tipo retorno es INPUT
+%node FunctionTipo Tipo = {
+	Tipo *tipo;//tipo y tam de retorno
+	vectorId *vectorParams;//tam de tipo base
+	vectorId *vectorReturn;
+}
+
+/*--------------------------------------------------------------------------------------
+					METATIPOS
+--------------------------------------------------------------------------------------*/
 
 %node MetaType %abstract %typedef = {
 	string lexeme;
@@ -117,26 +139,72 @@ using namespace std;
 	int lower;
 }
 
+//%node FunctionMetaType MetaType = {
+//}
+
+//--------------------getTipo()--------------------
+
+%operation %virtual Tipo *getTipo(MetaType *this)
+
+getTipo(IdMetaType){
+	return tipo;
+}
+
+getTipo(ArrayMetaType){
+	return new ArrayTipo(upper - lower, tipo, upper, lower);
+}
+
 /*--------------------------------------------------------------------------------------
 					PROGRAMA
 --------------------------------------------------------------------------------------*/
 %node Program %typedef = {
 	string moduleName;
-	VariableDeclarationList *variableDeclarationList;
-	Sentence *functionDeclaration;
+	mapTipo *mapa;
+	Statement *functionDeclaration;
 	Statement *main;
 }
+
 
 
 /*--------------------------------------------------------------------------------------
 					SENTENCIAS
 --------------------------------------------------------------------------------------*/
 
+/*%node Sentence %abstract %typedef
+
+%node SequenceSntnce Sentence = {
+	Sentence *sntnce1;
+	Sentence *sntnce2;
+}
+
+%node FunctionSntnce Sentence = {
+	string Id;
+	vectorId *params;
+	vectorId *returns;
+	Statement *body;
+}
+
+//--------------------validarSemantica()--------------------
+//%operation %virtual void validarSemantica(Sentence *this)
+
+
+
+/*--------------------------------------------------------------------------------------
+					STATEMENT
+--------------------------------------------------------------------------------------*/
+
 %node Statement %abstract %typedef
 
-%node StatementSeq Statement = {
+%node SequenceStmnt Statement = {
 	Statement *stmnt1;
 	Statement *stmnt2;
+}
+
+%node FunctionStmnt Statement = {
+	string Id;
+	vectorId *params;
+	vectorId *returns;
+	Statement *body;
 }
 
 %node AssignStmnt Statement = {
@@ -155,23 +223,9 @@ using namespace std;
 	TruthTable *table;
 }
 
-%node Sentence %abstract %typedef
-
-%node SequenceSntnce Sentence = {
-	Sentence *sntnce1;
-	Sentence *sntnce2;
-}
-
-%node FunctionSntnce Sentence = {
-	string Id;
-	vectorId *params;
-	vectorId *returns;
-	Statement *body;
-}
-
 //--------------------interpret()--------------------
 
-%operation %virtual void interpret(Statement *this)
+/*%operation %virtual void interpret(Statement *this)
 
 interpret(StatementSeq) {
 	if (stmnt1 != NULL)
@@ -197,7 +251,7 @@ interpret(WhenStmnt){
 
 interpret(TruthTableStmnt){
 	
-}
+}*/
 
 /*--------------------------------------------------------------------------------------
 					Expresiones
@@ -238,22 +292,15 @@ interpret(TruthTableStmnt){
 %node NotExpr UnaryExpr
 
 %node NumExpr Expr = {
-	int value;
+	long value;
+	int size;
 }
 
-%node BinNumExpr NumExpr
-%node OctNumExpr NumExpr
-%node HexNumExpr NumExpr
-%node DecNumExpr NumExpr
-
-%node FuncCallExpr Expr = {
-	string function_name;
-	vectorExpr *expressions;
-}
 
 %node ReferenceAccess Expr %abstract %typedef = {
-	string id;
+	string lexeme;
 }
+
 
 %node IdExpr ReferenceAccess
 
@@ -266,11 +313,150 @@ interpret(TruthTableStmnt){
 }
 
 %node SetExpr Expr = {
-	vectorExpr *ids;
+	vectorExpr *vector;
 }
 
-//--------------------eval()--------------------
+%node FuncCallExpr ReferenceAccess = {
+	vectorExpr *vector;
+}
 
+//--------------------validarSemantico()--------------------
+%operation %virtual Tipo *validarSemantico(Expr *this)
+
+validarSemantico(GreaterExpr),
+validarSemantico(GreaterEqualExpr),
+validarSemantico(LessExpr),
+validarSemantico(LessEqualExpr),
+validarSemantico(EqualExpr),
+validarSemantico(NotEqualExpr),
+
+validarSemantico(ShiftLeftExpr),
+validarSemantico(ShiftRightExpr),
+
+validarSemantico(AndExpr),
+validarSemantico(OrExpr),
+validarSemantico(XorExpr),
+validarSemantico(XnorExpr),
+
+validarSemantico(AddExpr),
+validarSemantico(SubExpr),
+validarSemantico(MultExpr),
+validarSemantico(DivExpr),
+validarSemantico(ModExpr) {
+	Tipo *t1 = exprLeft->validarSemantico();
+	Tipo *t2 = exprRight->validarSemantico();
+	
+	if (t1->size != t2->size)
+		cerr << "Sizes incompatibles en la expresion!!" << endl << endl;
+
+	if ((t1->getKind() != Input_kind) || (t2->getKind() != Input_kind))
+		cerr << "Operando deberia ser de tipo Input!!" << endl << endl;
+
+	return t1;
+}
+
+validarSemantico(NotExpr){
+	return expr->validarSemantico();
+}
+
+validarSemantico(NegateExpr){
+	return expr->validarSemantico();
+}
+
+validarSemantico(NumExpr){
+	return new Input(size);
+}
+
+validarSemantico(FuncCallExpr){
+	if (TablaTipos->tabla_tipos->count(lexeme) == 0)
+		cerr << "No existe la funcion: " << lexeme << endl << endl;
+
+	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+
+	FunctionTipo *tfunc;
+	tfunc = reinterpret_cast<FunctionTipo*>(t);
+
+	if (tfunc == NULL)
+		cerr << "Error en dynamic_cast!!" << endl << endl;
+	
+	if (tfunc->size != vector->exprs->size())
+		cerr << "Cantidad de parametros incorrecta!!" << endl << endl;
+
+	for (int x = 0; x < vector->exprs->size(); x++){
+		Tipo *tmp = vector->exprs->at(x)->validarSemantico();
+		if (tmp->getKind() != Input_kind)
+			cerr << "Parametros deberian ser de tipo Input!!" << endl << endl;
+	}
+	
+	return tfunc->tipo;
+}
+
+validarSemantico(IdExpr){
+	if (TablaTipos->tabla_tipos->count(lexeme) == 0)
+		cerr << "No existe la variable: " << lexeme << endl << endl;
+
+	return TablaTipos->tabla_tipos->find(lexeme)->second;
+}
+
+validarSemantico(ArrayIndexExpr)
+{
+	if (TablaTipos->tabla_tipos->count(lexeme) == 0)
+		cerr << "No existe la variable: " << lexeme << endl << endl;
+
+	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+
+	if (t->getKind() != ArrayTipo_kind)
+		cerr << "Tipo incorrecto de arreglo!!" << endl << endl;
+
+	ArrayTipo *arr = reinterpret_cast<ArrayTipo*>(t);
+
+	if (index > arr->upper)
+		cerr << "Indice por encima del limite superior de arreglo!!" << endl << endl;
+
+	if (index < arr->lower)
+		cerr << "Indice por debajo del limite inferior de arreglo!!" << endl << endl;
+
+	return t;
+}
+
+validarSemantico(ArraySubSetExpr)
+{
+	if (TablaTipos->tabla_tipos->count(lexeme) == 0)
+		cerr << "No existe la variable: " << lexeme << endl << endl;
+
+	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+
+	if (t->getKind() != ArrayTipo_kind)
+		cerr << "Tipo incorrecto de arreglo!!" << endl << endl;
+
+	ArrayTipo *arr = reinterpret_cast<ArrayTipo*>(t);
+
+	if ((index - index2) > arr->size)
+		cerr << "ArraySubSet mas grande que el arreglo!!" << endl << endl;
+
+	if (index > arr->upper)
+		cerr << "Indice upper por encima del limite superior soportado!!" << endl << endl;
+
+	if (index2 < arr->lower)
+		cerr << "Indice lower por debajo del limite inferior soportado!!" << endl << endl;
+
+	return t;
+}
+
+validarSemantico(SetExpr){
+	Tipo *t0 = vector->exprs->at(0)->validarSemantico();
+	
+	for (int x = 1; x < vector->exprs->size(); x++){
+		Tipo *t1 = vector->exprs->at(x)->validarSemantico();
+		if (t0->getKind() != t1->getKind() )
+			cerr << "Tipos de Conjunto son distintos!!!" << endl << endl;
+	}
+	return  t0;
+}
+
+
+//--------------------eval()--------------------
+/*
 %operation %virtual long eval(Expr *this)
 
 eval(GreaterExpr),
@@ -347,9 +533,9 @@ eval(FuncCallExpr) {
 	for(int x = 0; x < expressions->vector_exprs->size(); x++)
 		cout << expressions->vector_exprs->at(x)->eval() << endl;
 	*/
-	return 1;//tmp
-}
-
+	//return 1;//tmp
+//}
+/*
 eval(ArrayIndexExpr) {
 //	cout << "refIndex: " << index << endl;
 	return 1;//tmp
@@ -361,4 +547,4 @@ eval(ArraySubSetExpr) {
 
 eval(SetExpr) {
 	return 1;//tmp
-}
+}*/
