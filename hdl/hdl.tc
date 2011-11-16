@@ -9,111 +9,32 @@
 
 using namespace std;
 
-class vectorExpr;
-class vectorId;
 
-class vectorBool;
+class Expr;
+typedef vector<Expr*> vectorExpr;
+
+typedef vector<string> vectorId;
+typedef vector<bool> vectorBool;
+
 class TruthTableElem;
-class TruthTable;
+typedef vector<TruthTableElem*> TruthTable;
 
-class vectorMetaType;
-class mapTipo;
+class MetaType;
+typedef vector<MetaType*> vectorMetaType;
 
-class BitSet;
-class mapBitSet;
-class mapFuncion;
+class Tipo;
+typedef map<string, Tipo*> mapTipo;
+
+typedef boost::dynamic_bitset<> BitSet;
+
+typedef map<string, BitSet*> mapBitSet;
+
+class FuncionValor;
+typedef map<string, FuncionValor*> mapFuncion;
 
 extern mapTipo *TablaTipos;
 extern mapBitSet *TablaValores;
 extern mapFuncion *TablaFunciones;
-
-%}
-
-%decls %end %{
-
-class BitSet{
-public:
-	boost::dynamic_bitset<> *pbitset;
-	BitSet(int s, long val) { pbitset = new boost::dynamic_bitset<>(s, val); }
-	BitSet(boost::dynamic_bitset<> *pbs) { pbitset = pbs; }
-	BitSet() { }
-	~BitSet() { delete pbitset; }
-};
-
-class vectorId
-{
-public:
-	vector<string> *ids;
-	
-	vectorId() { ids = new vector<string>(); }
-	~vectorId() { delete ids; }
-};
-
-class vectorExpr
-{
-public:
-	vector<Expr*> *exprs;
-	
-	vectorExpr(){ exprs = new vector<Expr*>(); }
-	~vectorExpr() { delete exprs; }
-};
-
-
-class vectorBool
-{
-public:
-	vector<bool> *bools;
-	vectorBool() { bools = new vector<bool>(); }
-	~vectorBool() { delete bools; }
-};
-
-class TruthTableElem
-{
-public:
-	vector<bool> *in;
-	vector<bool> *out;
-	
-	TruthTableElem() { in = new vector<bool>(); out = new vector<bool>(); }
-	TruthTableElem(vector<bool> *pin, vector<bool> *pout) { in = pin; out = pout; }
-	~TruthTableElem() { delete in; delete out; }
-};
-
-class TruthTable
-{
-public:
-	vector<TruthTableElem*> *row;
-	TruthTable() { row = new vector<TruthTableElem*>(); }
-	~TruthTable() { delete row; }
-};
-
-class vectorMetaType{
-public:
-	vector<MetaType*> *metatypes;
-	vectorMetaType() { metatypes = new vector<MetaType*>(); }
-	~vectorMetaType() { delete metatypes; }
-};
-
-class mapTipo{
-public:
-	map<string, Tipo*> *tabla_tipos;
-	mapTipo() { tabla_tipos = new map<string, Tipo*>(); }
-	~mapTipo() { delete tabla_tipos; }
-};
-
-class mapBitSet{
-public:
-	map<string, BitSet*> *tabla_valores;
-	mapBitSet() { tabla_valores = new map<string, BitSet*>(); }
-	~mapBitSet() { delete tabla_valores; }
-};
-
-class mapFuncion
-{
-public:
-	map<string, FuncionValor*> *tabla_funciones;
-	mapFuncion() { tabla_funciones = new map<string, FuncionValor*>; }
-	~mapFuncion() { delete tabla_funciones; }
-};
 
 %}
 
@@ -263,6 +184,15 @@ Semantica(Program){
 	Statement *false_block;
 }
 
+/*--------------------------------------------------------------------------------------
+				TRUTH_TABLE
+--------------------------------------------------------------------------------------*/
+
+%node TruthTableElem %typedef = {
+	vectorBool *in;
+	vectorBool *out;
+}
+
 //--------------------validarSemantica()--------------------
 
 %operation %virtual void validarSemantica(Statement *this)
@@ -285,21 +215,21 @@ validarSemantica(FunctionStmntST){
 validarSemantica(FunctionStmntTT){
 //cout << "Entrando a validacion de FuncionTT" << endl;
 
-	long inCount = ttable->row->at(0)->in->size();
-	long paramCount = params->ids->size();
+	long inCount = ttable->at(0)->in->size();
+	long paramCount = params->size();
 	if (inCount != paramCount){
 		cerr << "Cantidad de variables de entrada incorrecta!! tabla:" << inCount << " params:" << paramCount << endl << endl;
 		exit(1);
 	}
-	long outCount = ttable->row->at(0)->out->size();
-	long retCount = returns->ids->size();
+	long outCount = ttable->at(0)->out->size();
+	long retCount = returns->size();
 	if (outCount != retCount){
 		cerr << "Cantidad de variables de salida incorrecta!! tabla:" << outCount << " returns:" << retCount << endl << endl;
 		exit(1);
 	}
-	long s = params->ids->size();
+	long s = params->size();
 	long filas = s*s;
-	if (ttable->row->size() != filas){
+	if (ttable->size() != filas){
 		cerr << "Cantidad de filas incorrecta en thruth_table!! filas: " << filas << endl << endl;
 		exit(1);
 	}
@@ -428,11 +358,11 @@ interpret(TruthTableStmnt){
 }
 
 %node SetExpr Expr = {
-	vectorExpr *vector;
+	vectorExpr *exprs;
 }
 
 %node FuncCallExpr ReferenceAccess = {
-	vectorExpr *vector;
+	vectorExpr *exprs;
 }
 
 //--------------------validarSemantico()--------------------
@@ -486,11 +416,11 @@ validarSemantico(NumExpr){
 
 validarSemantico(FuncCallExpr){
 //cout << "Entrando a validacion FUNCCALL" << endl;
-	if (TablaTipos->tabla_tipos->count(lexeme) == 0){
+	if (TablaTipos->count(lexeme) == 0){
 		cerr << "No existe la funcion: " << lexeme << endl << endl;
 		exit(1);
 	}
-	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+	Tipo *t = TablaTipos->find(lexeme)->second;
 
 	FunctionTipo *tfunc;
 	tfunc = reinterpret_cast<FunctionTipo*>(t);
@@ -499,12 +429,12 @@ validarSemantico(FuncCallExpr){
 		cerr << "Error en dynamic_cast!!" << endl << endl;
 			exit(1);
 	}
-	if (tfunc->size != vector->exprs->size()){
+	if (tfunc->size != exprs->size()){
 		cerr << "Cantidad de parametros incorrecta!!" << endl << endl;
 		exit(1);
 	}
-	for (int x = 0; x < vector->exprs->size(); x++){
-		Tipo *tmp = vector->exprs->at(x)->validarSemantico();
+	for (int x = 0; x < exprs->size(); x++){
+		Tipo *tmp = exprs->at(x)->validarSemantico();
 		if (tmp->getKind() == Output_kind){
 			cerr << "Parametros deberian ser de tipo Input o Temp!! tmpk: " << tmp->getKind() << endl << endl;
 		exit(1);
@@ -518,12 +448,12 @@ validarSemantico(FuncCallExpr){
 validarSemantico(IdExpr){
 //cout << "Entrando a validarSemantico de ID" << endl;
 
-	if (TablaTipos->tabla_tipos->count(lexeme) == 0){
+	if (TablaTipos->count(lexeme) == 0){
 		cerr << "No existe la variable: " << lexeme << endl << endl;
 		exit(1);
 	}
 
-	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+	Tipo *t = TablaTipos->find(lexeme)->second;
 
 //cout << "Saliendo de validarSemantico de ID" << endl;	
 	if (t->getKind() == ArrayTipo_kind){
@@ -540,11 +470,11 @@ validarSemantico(IdExpr){
 
 validarSemantico(ArrayIndexExpr)
 {
-	if (TablaTipos->tabla_tipos->count(lexeme) == 0){
+	if (TablaTipos->count(lexeme) == 0){
 		cerr << "No existe la variable: " << lexeme << endl << endl;
 		exit(1);
 	}
-	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+	Tipo *t = TablaTipos->find(lexeme)->second;
 
 	if (t->getKind() != ArrayTipo_kind){
 		cerr << "Tipo incorrecto de arreglo!!" << endl << endl;
@@ -565,11 +495,11 @@ validarSemantico(ArrayIndexExpr)
 
 validarSemantico(ArraySubSetExpr)
 {
-	if (TablaTipos->tabla_tipos->count(lexeme) == 0){
+	if (TablaTipos->count(lexeme) == 0){
 		cerr << "No existe la variable: " << lexeme << endl << endl;
 		exit(1);
 	}
-	Tipo *t = TablaTipos->tabla_tipos->find(lexeme)->second;
+	Tipo *t = TablaTipos->find(lexeme)->second;
 
 	if (t->getKind() != ArrayTipo_kind){
 		cerr << "Tipo incorrecto de arreglo!!" << endl << endl;
@@ -598,8 +528,8 @@ validarSemantico(ArraySubSetExpr)
 
 validarSemantico(SetExpr){
 	int size = 0;
-	for (int x = 0; x < vector->exprs->size(); x++){
-		Tipo *t = vector->exprs->at(x)->validarSemantico();
+	for (int x = 0; x < exprs->size(); x++){
+		Tipo *t = exprs->at(x)->validarSemantico();
 		size += t->size;
 		if (t->getKind() == Input_kind){
 			cerr << "Tipos de Conjunto deberia ser Output o Temp!!! tk: " << t->getKind() << endl << endl;
@@ -622,15 +552,15 @@ eval(EqualExpr),
 eval(NotEqualExpr){
 	BitSet *v1 = exprLeft->eval();
 	BitSet *v2 = exprRight->eval();
-	
+
 
         switch (getKind()) {
-		case GreaterExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset > v2->pbitset));
-		case GreaterEqualExpr_kind:	return new BitSet(v1->pbitset->size(), (v1->pbitset >= v2->pbitset));
-		case LessExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset < v2->pbitset));
-		case LessEqualExpr_kind:	return new BitSet(v1->pbitset->size(), (v1->pbitset <= v2->pbitset));
-		case EqualExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset == v2->pbitset));
-		case NotEqualExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset != v2->pbitset));
+		case GreaterExpr_kind:		return new BitSet(v1->size(), (v1 > v2));
+		case GreaterEqualExpr_kind:	return new BitSet(v1->size(), (v1 >= v2));
+		case LessExpr_kind:		return new BitSet(v1->size(), (v1 < v2));
+		case LessEqualExpr_kind:	return new BitSet(v1->size(), (v1 <= v2));
+		case EqualExpr_kind:		return new BitSet(v1->size(), (v1 == v2));
+		case NotEqualExpr_kind:		return new BitSet(v1->size(), (v1 != v2));
 		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
 	}
 }
@@ -641,12 +571,11 @@ eval(ShiftRightExpr){
 	BitSet *v2 = exprRight->eval();
 	
 
-/*        switch (getKind()) {
-//		case ShiftLeftExpr_kind:	return new BitSet(v->pbitset->size() ,(v1->pbitset << v2->pbitset->to_ulong()).to_ulong());
-//		case ShiftRightExpr_kind:	return (v1->pbitset >> v2->pbitset);
+        switch (getKind()) {
+		case ShiftLeftExpr_kind:	return new BitSet(v1->size() ,(*v1 << v2->to_ulong()).to_ulong());
+		case ShiftRightExpr_kind:	return new BitSet(v1->size(), (*v1 >> v2->to_ulong()).to_ulong());
 		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
-	}*/
-	return NULL;
+	}
 }
 
 eval(AndExpr),
@@ -657,14 +586,13 @@ eval(XnorExpr){
 	BitSet *v2 = exprRight->eval();
 	
 
-/*        switch (getKind()) {
-		case AndExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset & v2->pbitset));
-		case OrExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset | v2->pbitset));
-		case XorExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset ^ v2->pbitset));
-		case XnorExpr_kind:		return new BitSet(v1->pbitset->size(), !(v1->pbitset ^ v2->pbitset));
+        switch (getKind()) {
+		case AndExpr_kind:		return new BitSet(v1->size(), (*v1 & *v2).to_ulong());
+		case OrExpr_kind:		return new BitSet(v1->size(), (*v1 | *v2).to_ulong());
+		case XorExpr_kind:		return new BitSet(v1->size(), (*v1 ^ *v2).to_ulong());
+		case XnorExpr_kind:		return new BitSet(v1->size(), !(*v1 ^ *v2).to_ulong());
 		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
-	}*/
-	return NULL;
+	}
 }
 
 eval(AddExpr),
@@ -676,27 +604,28 @@ eval(ModExpr) {
 	BitSet *v2 = exprRight->eval();
 	
 
-/*        switch (getKind()) {
-
-		case AddExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() + v2->pbitset->to_ulong()));
-		case SubExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() - v2->pbitset->to_ulong()));
-		case MultExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() * v2->pbitset->to_ulong()));
-		case DivExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() / v2->pbitset->to_ulong()));
-		case ModExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() % v2->pbitset->to_ulong()));
+        switch (getKind()) {
+		case AddExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() + v2->to_ulong()));
+		case SubExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() - v2->to_ulong()));
+		case MultExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() * v2->to_ulong()));
+		case DivExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() / v2->to_ulong()));
+		case ModExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() % v2->to_ulong()));
 		
 		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
-        }*/
-	return NULL;
+        }
+
 }
 
-eval(NegateExpr),
+eval(NegateExpr){
+	BitSet *v = expr->eval();
+	BitSet *res = new BitSet(v->size(),0);
+	*res = *v;
+	res->flip();
+	return res;
+}
 eval(NotExpr) {
 	BitSet *v = expr->eval();
-	
-	switch (getKind()) {
-		case NegateExpr_kind:		return new BitSet(v->pbitset->size(),(new BitSet(v->pbitset->size(), 0))->pbitset-(v->pbitset));
-		case NotExpr_kind:		return new BitSet(v->pbitset->size(),!(v->pbitset));
-	}
+	return new BitSet(v->size(),!v->to_ulong());
 }
 
 eval(NumExpr) {

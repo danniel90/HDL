@@ -99,56 +99,56 @@ program:	MODULE ID SEMI
 =================================================*/
 
 variable_declaration_list:	variable_declaration						{
-												  TablaTipos = new mapTipo(); cout << "Init Symbol Table" << endl;
-												  TablaValores = new mapBitSet();
-												  TablaFunciones = new mapFuncion();
+												  TablaTipos = new map<string, Tipo*>(); cout << "Init Symbol Table" << endl;
+												  TablaValores = new map<string, BitSet*>();
+												  TablaFunciones = new map<string, FuncionValor*>();
 
-												  vectorMetaType *vector = $1;
-												  for (int x = 0; x < vector->metatypes->size(); x++){
-													MetaType *mt = vector->metatypes->at(x);
-													if (TablaTipos->tabla_tipos->count(mt->lexeme) > 0){
+												  vectorMetaType *metatypes = $1;
+												  for (int x = 0; x < metatypes->size(); x++){
+													MetaType *mt = metatypes->at(x);
+													if (TablaTipos->count(mt->lexeme) > 0){
 														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
 														exit(1);
 													}
-													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
+													TablaTipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
 													
-													TablaValores->tabla_valores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
+													TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
 												  }
 												  $$ = TablaTipos;
 												}
 				|variable_declaration variable_declaration_list			{
 												  mapTipo *vars = $2;
-												  vectorMetaType *vector = $1;
-												  for (int x = 0; x < vector->metatypes->size(); x++){
-													MetaType *mt = vector->metatypes->at(x);
-													if (vars->tabla_tipos->count(mt->lexeme) > 0){
+												  vectorMetaType *metatypes = $1;
+												  for (int x = 0; x < metatypes->size(); x++){
+													MetaType *mt = metatypes->at(x);
+													if (vars->count(mt->lexeme) > 0){
 														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
 														exit(1);
 													}
-													vars->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
-													TablaValores->tabla_valores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
+													vars->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
+													TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
 												  }
 												  $$ = vars;
 												}
 ;
 
 variable_declaration:		variables_list COLON variable_class SEMI			{
-												  vectorMetaType *vector = $1;
-												  for (int x = 0; x < vector->metatypes->size(); x++)
-													vector->metatypes->at(x)->tipo = $3;
-												  $$ = vector;
+												  vectorMetaType *metatypes = $1;
+												  for (int x = 0; x < metatypes->size(); x++)
+													metatypes->at(x)->tipo = $3;
+												  $$ = metatypes;
 												}
 ;
 
 variables_list:			variable							{
-												  vectorMetaType *vector = new vectorMetaType();
-												  vector->metatypes->push_back($1);
-												  $$ = vector;
+												  vectorMetaType *metatypes = new vectorMetaType();
+												  metatypes->push_back($1);
+												  $$ = metatypes;
 												}
 				|variables_list COMMA variable					{
-												  vectorMetaType *vector = $1;
-												  vector->metatypes->push_back($3);
-												  $$ = vector;
+												  vectorMetaType *metatypes = $1;
+												  metatypes->push_back($3);
+												  $$ = metatypes;
 												}
 ;
 
@@ -172,13 +172,13 @@ function_declaration_list:									{ $$ = NULL; }
 function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW 
 				LEFT_BRACKET id_list RIGHT_BRACKET
 				BEGIN1 truth_table END						{
-												  FunctionTipo *tFunc = new FunctionTipo($5->ids->size(), new Input($9->ids->size()), $5, $9);
+												  FunctionTipo *tFunc = new FunctionTipo($5->size(), new Input($9->size()), $5, $9);
 
-												  if (TablaTipos->tabla_tipos->count($2) > 0){
+												  if (TablaTipos->count($2) > 0){
 													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
 													exit(1);
 												  }
-												  TablaTipos->tabla_tipos->insert(pair<string, Tipo*>($2, tFunc));
+												  TablaTipos->insert(pair<string, Tipo*>($2, tFunc));
 //												  TablaValores->tabla_valores->insert(pair<string, BitSet*>($2, new BitSet(tFunc->getTipo()->size, 0)));
 
 												  $$ = new FunctionStmntTT($2,$5,$9,$12);
@@ -186,49 +186,49 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 				|FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW
 				LEFT_BRACKET id_list RIGHT_BRACKET
 				BEGIN1 statement_list END					{
-												  FunctionTipo *tFunc = new FunctionTipo($5->ids->size(), new Input($9->ids->size()), $5, $9);
+												  FunctionTipo *tFunc = new FunctionTipo($5->size(), new Input($9->size()), $5, $9);
 
 
-												  if (TablaTipos->tabla_tipos->count($2) > 0){
+												  if (TablaTipos->count($2) > 0){
 													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
 													exit(1);
 												  }
 
 												  vectorId *vectorIn = $5;
-												  for (int x = 0; x < vectorIn->ids->size(); x++){
-													string id = vectorIn->ids->at(x);
-													if (TablaTipos->tabla_tipos->count(id) > 0){
+												  for (int x = 0; x < vectorIn->size(); x++){
+													string id = vectorIn->at(x);
+													if (TablaTipos->count(id) > 0){
 														cerr << "Variable " << id << " ya existe!!" << endl << endl;
 														exit(1);
 													}
-													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Input(1)));
+													TablaTipos->insert(pair<string, Tipo*>(id,new Input(1)));
 //													TablaValores->tabla_valores->insert(pair<string, BitSet*>($2, new BitSet(tFunc->getTipo()->size, 0)));
 												  }
 
 												  vectorId *vectorOut = $9;
-												  for (int x = 0; x < vectorOut->ids->size(); x++){
-													string id = vectorOut->ids->at(x);
-													if (TablaTipos->tabla_tipos->count(id) > 0){
+												  for (int x = 0; x < vectorOut->size(); x++){
+													string id = vectorOut->at(x);
+													if (TablaTipos->count(id) > 0){
 														cerr << "Variable " << id << " ya existe!!" << endl << endl;
 														exit(1);
 													}
-													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Output(1)));
+													TablaTipos->insert(pair<string, Tipo*>(id,new Output(1)));
 												  }
 
-												  TablaTipos->tabla_tipos->insert(pair<string, Tipo*>($2, tFunc));
+												  TablaTipos->insert(pair<string, Tipo*>($2, tFunc));
 												  $$ = new FunctionStmntST($2,$5,$9,$12);
 												}
 ;
 
 id_list:			ID								{
-												  vectorId *vector = new vectorId();
-												  vector->ids->push_back($1);
-												  $$ = vector;
+												  vectorId *ids = new vectorId();
+												  ids->push_back($1);
+												  $$ = ids;
 												}
 				|id_list COMMA ID						{
-												  vectorId *vector = $1;
-												  vector->ids->push_back($3);
-												  $$ = vector;
+												  vectorId *ids = $1;
+												  ids->push_back($3);
+												  $$ = ids;
 												}
 ;
 
@@ -237,12 +237,12 @@ truth_table: 			TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY		{ $$ = $3; }
 
 truth_table_list:		truth_table_row							{
 												  TruthTable *tt = new TruthTable();
-												  tt->row->push_back($1);
+												  tt->push_back($1);
 												  $$ = tt;				
 												}
 				|truth_table_list truth_table_row				{
 												  TruthTable *tt = $1;
-												  tt->row->push_back($2);
+												  tt->push_back($2);
 												  $$ = tt;
 												}
 ;
@@ -346,8 +346,8 @@ factor:		SUB term							{ $$ = new NegateExpr($2); }
 ;
 
 term:		LEFT_PAREN expr RIGHT_PAREN					{ $$ = $2; }
-		|NUMBER								{ BitSet *b = new BitSet(32, $1); /*cout << "NUM :" << *b->pbitset << endl;*/ $$ = new NumExpr($1, 32, b); }
-		|SIZE NUMBER							{ BitSet *b = new BitSet($1, $2); /*cout << "SIZE NUM :" << b->pbitset->to_ulong() << endl;*/ $$ = new NumExpr($2, $1, b); }
+		|NUMBER								{ BitSet *b = new BitSet(32, $1); /*cout << "NUM :" << b << endl;*/ $$ = new NumExpr($1, 32, b); }
+		|SIZE NUMBER							{ BitSet *b = new BitSet($1, $2); /*cout << "SIZE NUM :" << *b << endl;*/ $$ = new NumExpr($2, $1, b); }
 		|ID								{ $$ = new IdExpr($1); }
 		|ID LEFT_BRACKET NUMBER RIGHT_BRACKET				{ $$ = new ArrayIndexExpr($1, $3); }
 		|ID LEFT_BRACKET NUMBER DOT DOT NUMBER RIGHT_BRACKET		{ $$ = new ArraySubSetExpr($1, $3, $6); }
@@ -356,14 +356,14 @@ term:		LEFT_PAREN expr RIGHT_PAREN					{ $$ = $2; }
 ;
 
 expr_list:	expr								{
-										  vectorExpr *vector = new vectorExpr();
-										  vector->exprs->push_back($1);
-										  $$ = vector;
+										  vectorExpr *exprs = new vectorExpr();
+										  exprs->push_back($1);
+										  $$ = exprs;
 										}
 		|expr_list COMMA expr						{
-										  vectorExpr *vector = $1;
-										  vector->exprs->push_back($3);
-										  $$ = vector;
+										  vectorExpr *exprs = $1;
+										  exprs->push_back($3);
+										  $$ = exprs;
 										}
 ;
 
