@@ -18,6 +18,8 @@ using namespace std;
 int yylex();
 
 mapTipo *TablaTipos;
+mapBitSet *TablaValores;
+mapFuncion *TablaFunciones;
 
 void yyerror(const char *message)
 {
@@ -33,7 +35,6 @@ void yyerror(const char *message)
 	mapTipo *variables;
 	Tipo *tipo;
 	MetaType *metatype;
-//	Sentence *sntnce;
 	Statement *statement;
 	TruthTable *tt;
 	TruthTableElem *TTelem;
@@ -44,7 +45,6 @@ void yyerror(const char *message)
 	int size;
 
 	vectorExpr *exprs;
-//	vectorBool *bools;
 	vector<bool> *bools;
 	vectorId *ids;
 	vectorMetaType *metatypes;
@@ -67,7 +67,6 @@ void yyerror(const char *message)
 %type<tt> truth_table_list truth_table
 
 %type<bools> binary_number_list
-
 
 %type<statement> statement_list statement assign_statement when_statement opt_else function_declaration function_declaration_list
 %type<ids> id_list
@@ -101,6 +100,9 @@ program:	MODULE ID SEMI
 
 variable_declaration_list:	variable_declaration						{
 												  TablaTipos = new mapTipo(); cout << "Init Symbol Table" << endl;
+												  TablaValores = new mapBitSet();
+												  TablaFunciones = new mapFuncion();
+
 												  vectorMetaType *vector = $1;
 												  for (int x = 0; x < vector->metatypes->size(); x++){
 													MetaType *mt = vector->metatypes->at(x);
@@ -109,6 +111,8 @@ variable_declaration_list:	variable_declaration						{
 														exit(1);
 													}
 													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
+													
+													TablaValores->tabla_valores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
 												  }
 												  $$ = TablaTipos;
 												}
@@ -122,6 +126,7 @@ variable_declaration_list:	variable_declaration						{
 														exit(1);
 													}
 													vars->tabla_tipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
+													TablaValores->tabla_valores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
 												  }
 												  $$ = vars;
 												}
@@ -174,6 +179,8 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 													exit(1);
 												  }
 												  TablaTipos->tabla_tipos->insert(pair<string, Tipo*>($2, tFunc));
+//												  TablaValores->tabla_valores->insert(pair<string, BitSet*>($2, new BitSet(tFunc->getTipo()->size, 0)));
+
 												  $$ = new FunctionStmntTT($2,$5,$9,$12);
 												}
 				|FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW
@@ -195,6 +202,7 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 														exit(1);
 													}
 													TablaTipos->tabla_tipos->insert(pair<string, Tipo*>(id,new Input(1)));
+//													TablaValores->tabla_valores->insert(pair<string, BitSet*>($2, new BitSet(tFunc->getTipo()->size, 0)));
 												  }
 
 												  vectorId *vectorOut = $9;
@@ -338,8 +346,8 @@ factor:		SUB term							{ $$ = new NegateExpr($2); }
 ;
 
 term:		LEFT_PAREN expr RIGHT_PAREN					{ $$ = $2; }
-		|NUMBER								{ $$ = new NumExpr($1, 0); }
-		|SIZE NUMBER							{ $$ = new NumExpr($2, $1); }
+		|NUMBER								{ BitSet *b = new BitSet(32, $1); /*cout << "NUM :" << *b->pbitset << endl;*/ $$ = new NumExpr($1, 32, b); }
+		|SIZE NUMBER							{ BitSet *b = new BitSet($1, $2); /*cout << "SIZE NUM :" << b->pbitset->to_ulong() << endl;*/ $$ = new NumExpr($2, $1, b); }
 		|ID								{ $$ = new IdExpr($1); }
 		|ID LEFT_BRACKET NUMBER RIGHT_BRACKET				{ $$ = new ArrayIndexExpr($1, $3); }
 		|ID LEFT_BRACKET NUMBER DOT DOT NUMBER RIGHT_BRACKET		{ $$ = new ArraySubSetExpr($1, $3, $6); }

@@ -1,19 +1,15 @@
-module FullAdder4Bit;
+module Multiplexor4to1;
 var
-    a[3..0], b[3..0], ci: input;
-    r[3..0], co: output;
-    t0, t1, t2, t3: temp;
-
-function fulladder: [x, y, carry_in] -> [result, carry_out]
+	a, b, c, d: input;
+	s[1..0]: input;
+	r: output;
 begin
-    result = (x :+: y) :+: carry_in;
-    carry_out = (x & y) # ((x :+: y) & carry_in);
-end
-
-begin
-    [r[0], t0] = fulladder(a[0], b[0], ci);
-    [r[1], t1] = fulladder(a[1], b[1], t0);
-    [r[2], t2] = fulladder(a[2], b[2], t1);
-    [r[3], t3] = fulladder(a[3], b[3], t2);
-    co = t3;
+	when s == ^2b00 then
+		r = a;
+	else when s == ^2b01 then
+		r = b;
+	else when s ==  ^2b10 then
+		r = c;
+	else
+		r = d;
 end

@@ -3,8 +3,9 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <bitset>
 #include <math.h>
+
+#include <boost/dynamic_bitset.hpp>
 
 using namespace std;
 
@@ -18,19 +19,25 @@ class TruthTable;
 class vectorMetaType;
 class mapTipo;
 
+class BitSet;
+class mapBitSet;
+class mapFuncion;
+
 extern mapTipo *TablaTipos;
+extern mapBitSet *TablaValores;
+extern mapFuncion *TablaFunciones;
 
 %}
 
 %decls %end %{
 
-class vectorExpr
-{
+class BitSet{
 public:
-	vector<Expr*> *exprs;
-	
-	vectorExpr(){ exprs = new vector<Expr*>(); }
-	~vectorExpr() { delete exprs; }
+	boost::dynamic_bitset<> *pbitset;
+	BitSet(int s, long val) { pbitset = new boost::dynamic_bitset<>(s, val); }
+	BitSet(boost::dynamic_bitset<> *pbs) { pbitset = pbs; }
+	BitSet() { }
+	~BitSet() { delete pbitset; }
 };
 
 class vectorId
@@ -41,6 +48,16 @@ public:
 	vectorId() { ids = new vector<string>(); }
 	~vectorId() { delete ids; }
 };
+
+class vectorExpr
+{
+public:
+	vector<Expr*> *exprs;
+	
+	vectorExpr(){ exprs = new vector<Expr*>(); }
+	~vectorExpr() { delete exprs; }
+};
+
 
 class vectorBool
 {
@@ -81,6 +98,21 @@ public:
 	map<string, Tipo*> *tabla_tipos;
 	mapTipo() { tabla_tipos = new map<string, Tipo*>(); }
 	~mapTipo() { delete tabla_tipos; }
+};
+
+class mapBitSet{
+public:
+	map<string, BitSet*> *tabla_valores;
+	mapBitSet() { tabla_valores = new map<string, BitSet*>(); }
+	~mapBitSet() { delete tabla_valores; }
+};
+
+class mapFuncion
+{
+public:
+	map<string, FuncionValor*> *tabla_funciones;
+	mapFuncion() { tabla_funciones = new map<string, FuncionValor*>; }
+	~mapFuncion() { delete tabla_funciones; }
 };
 
 %}
@@ -185,6 +217,12 @@ Semantica(Program){
 	}
 	main->validarSemantica();
 	cout << "validacion semantica del main DONE" << endl;
+}
+
+%node FuncionValor %typedef = {
+	vectorId *input;
+	vectorId *output;
+	Statement *body;
 }
 
 /*--------------------------------------------------------------------------------------
@@ -370,6 +408,7 @@ interpret(TruthTableStmnt){
 %node NumExpr Expr = {
 	long value;
 	int size;
+	BitSet *bs;
 }
 
 
@@ -564,103 +603,122 @@ validarSemantico(SetExpr){
 		size += t->size;
 		if (t->getKind() == Input_kind){
 			cerr << "Tipos de Conjunto deberia ser Output o Temp!!! tk: " << t->getKind() << endl << endl;
-		exit(1);
-	}
+			exit(1);
+		}
 	}
 	return  new Output(size);
 }
 
 
 //--------------------eval()--------------------
-/*
-%operation %virtual long eval(Expr *this)
+
+%operation %virtual BitSet* eval(Expr *this)
 
 eval(GreaterExpr),
 eval(GreaterEqualExpr),
 eval(LessExpr),
 eval(LessEqualExpr),
 eval(EqualExpr),
-eval(NotEqualExpr),
+eval(NotEqualExpr){
+	BitSet *v1 = exprLeft->eval();
+	BitSet *v2 = exprRight->eval();
+	
+
+        switch (getKind()) {
+		case GreaterExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset > v2->pbitset));
+		case GreaterEqualExpr_kind:	return new BitSet(v1->pbitset->size(), (v1->pbitset >= v2->pbitset));
+		case LessExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset < v2->pbitset));
+		case LessEqualExpr_kind:	return new BitSet(v1->pbitset->size(), (v1->pbitset <= v2->pbitset));
+		case EqualExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset == v2->pbitset));
+		case NotEqualExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset != v2->pbitset));
+		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
+	}
+}
 
 eval(ShiftLeftExpr),
-eval(ShiftRightExpr),
+eval(ShiftRightExpr){
+	BitSet *v1 = exprLeft->eval();
+	BitSet *v2 = exprRight->eval();
+	
+
+/*        switch (getKind()) {
+//		case ShiftLeftExpr_kind:	return new BitSet(v->pbitset->size() ,(v1->pbitset << v2->pbitset->to_ulong()).to_ulong());
+//		case ShiftRightExpr_kind:	return (v1->pbitset >> v2->pbitset);
+		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
+	}*/
+	return NULL;
+}
 
 eval(AndExpr),
 eval(OrExpr),
 eval(XorExpr),
-eval(XnorExpr),
+eval(XnorExpr){
+	BitSet *v1 = exprLeft->eval();
+	BitSet *v2 = exprRight->eval();
+	
+
+/*        switch (getKind()) {
+		case AndExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset & v2->pbitset));
+		case OrExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset | v2->pbitset));
+		case XorExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset ^ v2->pbitset));
+		case XnorExpr_kind:		return new BitSet(v1->pbitset->size(), !(v1->pbitset ^ v2->pbitset));
+		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
+	}*/
+	return NULL;
+}
 
 eval(AddExpr),
 eval(SubExpr),
 eval(MultExpr),
 eval(DivExpr),
 eval(ModExpr) {
-	long v1 = exprLeft->eval();
-	long v2 = exprRight->eval();
+	BitSet *v1 = exprLeft->eval();
+	BitSet *v2 = exprRight->eval();
 	
-        switch (getKind()) {
-		case GreaterExpr_kind:		return v1 > v2;
-		case GreaterEqualExpr_kind:	return v1 >= v2;
-		case LessExpr_kind:		return v1 < v2;
-		case LessEqualExpr_kind:	return v1 <= v2;
-		case EqualExpr_kind:		return v1 == v2;
-		case NotEqualExpr_kind:		return v1 != v2;
 
-		case ShiftLeftExpr_kind:	return v1 << v2;
-		case ShiftRightExpr_kind:	return v1 >> v2;
+/*        switch (getKind()) {
 
-		case AndExpr_kind:		return v1 & v2;
-		case OrExpr_kind:		return v1 | v2;
-		case XorExpr_kind:		return v1 ^ v2;
-		case XnorExpr_kind:		return !(v1 ^ v2);
-
-		case AddExpr_kind:		return v1 + v2;
-		case SubExpr_kind:		return v1 - v2;
-		case MultExpr_kind:		return v1 * v2;
-		case DivExpr_kind:		return v1 / v2;
-		case ModExpr_kind:		return v1 % v2;
+		case AddExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() + v2->pbitset->to_ulong()));
+		case SubExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() - v2->pbitset->to_ulong()));
+		case MultExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() * v2->pbitset->to_ulong()));
+		case DivExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() / v2->pbitset->to_ulong()));
+		case ModExpr_kind:		return new BitSet(v1->pbitset->size(), (v1->pbitset->to_ulong() % v2->pbitset->to_ulong()));
 		
-		default:			break;
-        }
-	return 0;
+		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
+        }*/
+	return NULL;
 }
 
 eval(NegateExpr),
 eval(NotExpr) {
-	long v = expr->eval();
+	BitSet *v = expr->eval();
 	
 	switch (getKind()) {
-		case NegateExpr_kind:		return -v;
-		case NotExpr_kind:		return !v;
+		case NegateExpr_kind:		return new BitSet(v->pbitset->size(),(new BitSet(v->pbitset->size(), 0))->pbitset-(v->pbitset));
+		case NotExpr_kind:		return new BitSet(v->pbitset->size(),!(v->pbitset));
 	}
 }
 
 eval(NumExpr) {
-	return value;
+	return bs;
 }
 
 eval(IdExpr) {
-	return 1;//tmp
+	return NULL; //tmp
 }
 
 eval(FuncCallExpr) {
-	/*
-	cout << "funcCall exprs: " << endl;
-	for(int x = 0; x < expressions->vector_exprs->size(); x++)
-		cout << expressions->vector_exprs->at(x)->eval() << endl;
-	*/
-	//return 1;//tmp
-//}
-/*
+	return NULL; //tmp
+}
+
 eval(ArrayIndexExpr) {
-//	cout << "refIndex: " << index << endl;
-	return 1;//tmp
+	return NULL; //tmp
 }
 
 eval(ArraySubSetExpr) {
-	return 1;//tmp
+	return NULL; //tmp
 }
 
 eval(SetExpr) {
-	return 1;//tmp
-}*/
+	return NULL; //tmp
+}
