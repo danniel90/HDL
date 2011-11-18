@@ -116,16 +116,22 @@ getTipo(ArrayMetaType){
 	Statement *main;
 }
 
+//--------------------Semantica()--------------------
+
 %operation %virtual void Semantica(Program *this)
 
 Semantica(Program){
+	TablaTipos = new map<string, Tipo*>(); cout << "Init Symbol Table" << endl;
+	TablaValores = new map<string, BitSet*>();
+	TablaFunciones = new map<string, FuncionValor*>();
 	
 	variableDeclaration->validarSemantica();
 	cout << "validacion semantica de variables DONE" << endl;
 
-	if (functionDeclaration != NULL)
+	if (functionDeclaration != NULL){
 		functionDeclaration->validarSemantica();
-	cout << "validacion semantica de funciones DONE" << endl;
+		cout << "validacion semantica de funciones DONE" << endl;
+	}
 
 	if (main == NULL){
 		cerr << "Falta funcion main del programa!!" << endl << endl;
@@ -134,6 +140,25 @@ Semantica(Program){
 	main->validarSemantica();
 	cout << "validacion semantica del main DONE" << endl;
 }
+
+//--------------------Interpretacion()--------------------
+%operation %virtual void Interpretacion(Program *this)
+
+Interpretacion(Program){
+	variableDeclaration->interpret();
+	cout << endl << endl << "Interpretacion de variables DONE" << endl;
+
+	if (functionDeclaration != NULL){
+		functionDeclaration->validarSemantica();
+		cout << "Interpretacion de funciones DONE" << endl;
+	}
+
+	main->interpret();
+	cout << "Interpretacion del main DONE" << endl;
+}
+/*--------------------------------------------------------------------------------------
+				FUNCION VALOR
+--------------------------------------------------------------------------------------*/
 
 %node FuncionValor %abstract %typedef
 
@@ -149,6 +174,8 @@ Semantica(Program){
 	Statement *stmnts;
 	mapBitSet *valores;
 }
+
+//--------------------evalFunction()--------------------
 
 %operation %virtual BitSet* evalFunction(FuncionValor *this)
 
@@ -169,7 +196,7 @@ evalFunction(FuncionValorST){
 	mapBitSet *old = TablaValores;
 	TablaValores = valores;
 
-	//stmnts->interpret();
+	stmnts->interpret();
 
 	BitSet *res = new BitSet();
 	for (int x = 0; x > output->size(); x++){
@@ -342,10 +369,12 @@ validarSemantica(AssignStmnt){
 		cerr << "Size de conjuntos distinto!! lval: " << tlvalue->size << " rvalue: " << trvalue->size << endl << endl;
 		exit(1);
 	}
+
 	if (tlvalue->getKind() == Input_kind){
 		cerr << "Conjuntos del lado izquierdo de la asignacion deben ser de tipo Output!!" << endl << endl;
 		exit(1);
 	}
+
 	if (trvalue->getKind() == Output_kind){
 		cerr << "Conjuntos del lado derecho de la asignacion deben ser de tipo Input!!" << endl << endl;
 		exit(1);
@@ -354,6 +383,7 @@ validarSemantica(AssignStmnt){
 }
 
 validarSemantica(WhenStmnt){
+	if (!(cond->isA(RelExpr_kind))) { cerr << "Expresion del when deberia ser condicional" << endl << endl; exit(1); }
 	Tipo *tcond = cond->validarSemantico();
 
 	true_block->validarSemantica();
@@ -367,7 +397,8 @@ validarSemantica(WhenStmnt){
 %operation %virtual void interpret(Statement *this)
 
 interpret(SequenceStmnt){
-
+	if (stmnt1 != NULL) stmnt1->interpret();
+	if (stmnt2 != NULL) stmnt2->interpret();
 }
 
 interpret(VariableDeclarationStmnt){
@@ -399,11 +430,21 @@ interpret(FunctionStmntTT){
 }
 
 interpret(AssignStmnt){
-
+	LValues *lval = reinterpret_cast<LValues*>(lvalue);
+	if (lval == NULL){ cerr << "Error en casteo de lval" << endl << endl; }
+	globalVal = rvalue->eval();
+	lval->SetElem();
 }
 
 interpret(WhenStmnt){
+	unsigned long ulcond = cond->eval()->to_ulong();
 
+	if (ulcond > 0){
+		true_block->interpret();
+	} else {
+		if (false_block != NULL)
+			false_block->interpret();
+	}
 }
 
 /*--------------------------------------------------------------------------------------
@@ -416,12 +457,14 @@ interpret(WhenStmnt){
 	Expr *exprRight;
 }
 
-%node GreaterExpr BinaryExpr
-%node GreaterEqualExpr BinaryExpr
-%node LessExpr BinaryExpr
-%node LessEqualExpr BinaryExpr
-%node EqualExpr BinaryExpr
-%node NotEqualExpr BinaryExpr
+%node RelExpr BinaryExpr %abstract %typedef
+
+%node GreaterExpr RelExpr
+%node GreaterEqualExpr RelExpr
+%node LessExpr RelExpr
+%node LessEqualExpr RelExpr
+%node EqualExpr RelExpr
+%node NotEqualExpr RelExpr
 
 %node ShiftLeftExpr BinaryExpr
 %node ShiftRightExpr BinaryExpr
@@ -478,6 +521,27 @@ interpret(WhenStmnt){
 
 %operation %virtual void SetElem(LValues *this)
 
+SetElem(SetExpr){
+	BitSet *oldGVal = globalVal;
+	//int oGSize = oldGVal->size();
+	int count = 0;
+
+	//while (count < oGSize){
+		for (int x = 0; x < exprs->size(); x++){
+			BitSet *b = exprs->at(x)->eval();
+			for (int y = 0; y > b->size(); y++){
+				(*b)[y] = (*oldGVal)[count++];
+			}
+			globalVal = b;
+			ReferenceAccess *r = reinterpret_cast<ReferenceAccess*>(exprs->at(x));
+
+			if (r == NULL){ cerr << "Error en casteo de expr a refaccess!!" << endl << endl; exit(1); }
+			r->SetElem();
+			globalVal = oldGVal;
+		}
+	//}
+}
+
 SetElem(IdExpr){
 	TablaValores->insert(pair<string, BitSet*>(lexeme, globalVal));
 }
@@ -486,12 +550,13 @@ SetElem(ArrayIndexExpr){
 	TablaValores->insert(pair<string, BitSet*>(lexeme, new BitSet(1,globalVal[index].to_ulong())));
 }
 
-SetElem(SetExpr){
-	BitSet *old = globalVal;
+SetElem(ArraySubSetExpr){
+	BitSet *oldVal = TablaValores->find(lexeme)->second;
 
-	for (int x = 0; x < exprs->size(); x++){
-		//------------------------
+	for (int x = index; x >= index2; x--){
+		(*oldVal)[x] = (*globalVal)[x];
 	}
+	TablaValores->insert(pair<string, BitSet*>(lexeme, new BitSet(1,oldVal->to_ulong())));
 }
 
 //--------------------validarSemantico()--------------------
@@ -503,15 +568,12 @@ validarSemantico(LessExpr),
 validarSemantico(LessEqualExpr),
 validarSemantico(EqualExpr),
 validarSemantico(NotEqualExpr),
-
 validarSemantico(ShiftLeftExpr),
 validarSemantico(ShiftRightExpr),
-
 validarSemantico(AndExpr),
 validarSemantico(OrExpr),
 validarSemantico(XorExpr),
 validarSemantico(XnorExpr),
-
 validarSemantico(AddExpr),
 validarSemantico(SubExpr),
 validarSemantico(MultExpr),
@@ -682,52 +744,13 @@ eval(GreaterEqualExpr),
 eval(LessExpr),
 eval(LessEqualExpr),
 eval(EqualExpr),
-eval(NotEqualExpr){
-	BitSet *v1 = exprLeft->eval();
-	BitSet *v2 = exprRight->eval();
-
-
-        switch (getKind()) {
-		case GreaterExpr_kind:		return new BitSet(v1->size(), (v1 > v2));
-		case GreaterEqualExpr_kind:	return new BitSet(v1->size(), (v1 >= v2));
-		case LessExpr_kind:		return new BitSet(v1->size(), (v1 < v2));
-		case LessEqualExpr_kind:	return new BitSet(v1->size(), (v1 <= v2));
-		case EqualExpr_kind:		return new BitSet(v1->size(), (v1 == v2));
-		case NotEqualExpr_kind:		return new BitSet(v1->size(), (v1 != v2));
-		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
-	}
-}
-
+eval(NotEqualExpr),
 eval(ShiftLeftExpr),
-eval(ShiftRightExpr){
-	BitSet *v1 = exprLeft->eval();
-	BitSet *v2 = exprRight->eval();
-	
-
-        switch (getKind()) {
-		case ShiftLeftExpr_kind:	return new BitSet(v1->size() ,(*v1 << v2->to_ulong()).to_ulong());
-		case ShiftRightExpr_kind:	return new BitSet(v1->size(), (*v1 >> v2->to_ulong()).to_ulong());
-		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
-	}
-}
-
+eval(ShiftRightExpr),
 eval(AndExpr),
 eval(OrExpr),
 eval(XorExpr),
-eval(XnorExpr){
-	BitSet *v1 = exprLeft->eval();
-	BitSet *v2 = exprRight->eval();
-	
-
-        switch (getKind()) {
-		case AndExpr_kind:		return new BitSet(v1->size(), (*v1 & *v2).to_ulong());
-		case OrExpr_kind:		return new BitSet(v1->size(), (*v1 | *v2).to_ulong());
-		case XorExpr_kind:		return new BitSet(v1->size(), (*v1 ^ *v2).to_ulong());
-		case XnorExpr_kind:		return new BitSet(v1->size(), !(*v1 ^ *v2).to_ulong());
-		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
-	}
-}
-
+eval(XnorExpr),
 eval(AddExpr),
 eval(SubExpr),
 eval(MultExpr),
@@ -738,6 +761,21 @@ eval(ModExpr) {
 	
 
         switch (getKind()) {
+		case GreaterExpr_kind:		return new BitSet(v1->size(), (v1 > v2));
+		case GreaterEqualExpr_kind:	return new BitSet(v1->size(), (v1 >= v2));
+		case LessExpr_kind:		return new BitSet(v1->size(), (v1 < v2));
+		case LessEqualExpr_kind:	return new BitSet(v1->size(), (v1 <= v2));
+		case EqualExpr_kind:		return new BitSet(v1->size(), (v1 == v2));
+		case NotEqualExpr_kind:		return new BitSet(v1->size(), (v1 != v2));
+
+		case ShiftLeftExpr_kind:	return new BitSet(v1->size() ,(*v1 << v2->to_ulong()).to_ulong());
+		case ShiftRightExpr_kind:	return new BitSet(v1->size(), (*v1 >> v2->to_ulong()).to_ulong());
+
+		case AndExpr_kind:		return new BitSet(v1->size(), (*v1 & *v2).to_ulong());
+		case OrExpr_kind:		return new BitSet(v1->size(), (*v1 | *v2).to_ulong());
+		case XorExpr_kind:		return new BitSet(v1->size(), (*v1 ^ *v2).to_ulong());
+		case XnorExpr_kind:		return new BitSet(v1->size(), !(*v1 ^ *v2).to_ulong());
+
 		case AddExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() + v2->to_ulong()));
 		case SubExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() - v2->to_ulong()));
 		case MultExpr_kind:		return new BitSet(v1->size(), (v1->to_ulong() * v2->to_ulong()));
@@ -771,6 +809,19 @@ eval(IdExpr) {
 
 eval(FuncCallExpr) {
 	FuncionValor *fval = TablaFunciones->find(lexeme)->second;
+
+	if (fval->getKind() == FuncionValorST_kind){
+		FuncionValorST *fst = reinterpret_cast<FuncionValorST*>(fval);
+
+		if (fst == NULL) { cerr << "Error en casteo de fst" << endl << endl; exit(1); }
+		for (int x = 0; x < exprs->size(); x++){
+			BitSet *b = exprs->at(x)->eval();
+			fst->valores->insert(pair<string, BitSet*>(fst->input->at(x), b));
+		}
+		for (int x = 0; x < fst->output->size(); x++){
+			fst->valores->insert(pair<string, BitSet*>(fst->output->at(x), new BitSet(1,0)));
+		}
+	}
 	return fval->evalFunction();
 }
 

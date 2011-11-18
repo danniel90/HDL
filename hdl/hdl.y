@@ -87,6 +87,8 @@ program:	MODULE ID SEMI
 												  Program *p = new Program($2, $5, $6, $8);
 												  p->Semantica();
 												  cout << "Validacion Semantica Exitosa!! :)" << endl;
+												  p->Interpretacion();
+												  cout << "Interpretacion Exitosa!! :OO :)" << endl;
 												  $$ = p;
 												}
 ;
@@ -95,41 +97,8 @@ program:	MODULE ID SEMI
 	DECLARACION DE VARIABLES
 =================================================*/
 
-variable_declaration_list:	variable_declaration						{
-												  TablaTipos = new map<string, Tipo*>(); cout << "Init Symbol Table" << endl;
-												  TablaValores = new map<string, BitSet*>();
-												  TablaFunciones = new map<string, FuncionValor*>();
-
-												  /*vectorMetaType *metatypes = $1;
-												  for (int x = 0; x < metatypes->size(); x++){
-													MetaType *mt = metatypes->at(x);
-													if (TablaTipos->count(mt->lexeme) > 0){
-														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
-														exit(1);
-													}
-													TablaTipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
-													
-													TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
-												  }
-												  
-												  $$ = TablaTipos;*/
-												  $$ = $1;
-												}
-				|variable_declaration variable_declaration_list			{
-												  /*mapTipo *vars = $2;
-												  vectorMetaType *metatypes = $1;
-												  for (int x = 0; x < metatypes->size(); x++){
-													MetaType *mt = metatypes->at(x);
-													if (vars->count(mt->lexeme) > 0){
-														cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
-														exit(1);
-													}
-													vars->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
-													TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
-												  }
-												  $$ = vars;*/
-												  $$ = new SequenceStmnt($1, $2);
-												}
+variable_declaration_list:	variable_declaration						{ $$ = $1; }
+				|variable_declaration variable_declaration_list			{ $$ = new SequenceStmnt($1, $2); }
 ;
 
 variable_declaration:		variables_list COLON variable_class SEMI			{

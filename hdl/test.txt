@@ -1,12 +1,15 @@
-module HalfAdder_NoTT;
+module Multiplexor4to1;
 var
-    a, b: input;
-    r: output;
-function halfadder: [a, b] -> [r]
+	a, b, c, d: input;
+	s[1..0]: input;
+	r: output;
 begin
-    r = a & b;
-end
-
-begin
-    r = halfadder(a, b);
+	when s == ^2b00 then
+		r = a;
+	else when s == ^2b01 then
+		r = b;
+	else when s ==  ^2b10 then
+		r = c;
+	else
+		r = d;
 end
