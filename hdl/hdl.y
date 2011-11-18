@@ -37,7 +37,7 @@ void yyerror(const char *message)
 	MetaType *metatype;
 	Statement *statement;
 	TruthTable *tt;
-	TruthTableElem *TTelem;
+	TruthTableElem *ttelem;
 	Expr *expr;
 
 	char *lexema;
@@ -63,9 +63,8 @@ void yyerror(const char *message)
 %type<metatype> variable
 %type<tipo> variable_class
 
-%type<TTelem> truth_table_row
 %type<tt> truth_table_list truth_table
-
+%type<ttelem> truth_table_row
 %type<bools> binary_number_list
 
 %type<statement> statement_list statement assign_statement when_statement opt_else function_declaration function_declaration_list
@@ -89,7 +88,7 @@ program:	MODULE ID SEMI
 		BEGIN1 statement_list END							{
 												  Program *p = new Program($2, $5, $6, $8);
 												  p->Semantica();
-												  cout << "Validacion Semantica Existosa!! :)" << endl;
+												  cout << "Validacion Semantica Exitosa!! :)" << endl;
 												  $$ = p;
 												}
 ;
@@ -172,27 +171,30 @@ function_declaration_list:									{ $$ = NULL; }
 function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW 
 				LEFT_BRACKET id_list RIGHT_BRACKET
 				BEGIN1 truth_table END						{
-												  FunctionTipo *tFunc = new FunctionTipo($5->size(), new Input($9->size()), $5, $9);
+												  /*FunctionTipo *tFunc = new FunctionTipo($5->size(), new Input($9->size()), $5, $9);
 
 												  if (TablaTipos->count($2) > 0){
 													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
 													exit(1);
 												  }
 												  TablaTipos->insert(pair<string, Tipo*>($2, tFunc));
-//												  TablaValores->tabla_valores->insert(pair<string, BitSet*>($2, new BitSet(tFunc->getTipo()->size, 0)));
+
+												  FuncionValorTT *fVal = new FuncionValorTT(new BitSet($5->size(), 0), new BitSet($9->size(), 0), $12);
+												  TablaFunciones->insert(pair<string, FuncionValor*>($2, fVal));*/
 
 												  $$ = new FunctionStmntTT($2,$5,$9,$12);
 												}
 				|FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARROW
 				LEFT_BRACKET id_list RIGHT_BRACKET
 				BEGIN1 statement_list END					{
-												  FunctionTipo *tFunc = new FunctionTipo($5->size(), new Input($9->size()), $5, $9);
-
+												  /*FunctionTipo *tFunc = new FunctionTipo($5->size(), new Input($9->size()), $5, $9);
 
 												  if (TablaTipos->count($2) > 0){
 													cerr << "Funcion " << $2 << " ya existe!!" << endl << endl;
 													exit(1);
 												  }
+												  mapTipo *old = TablaTipos;
+												  TablaTipos = new map<string, Tipo*>();
 
 												  vectorId *vectorIn = $5;
 												  for (int x = 0; x < vectorIn->size(); x++){
@@ -202,9 +204,7 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 														exit(1);
 													}
 													TablaTipos->insert(pair<string, Tipo*>(id,new Input(1)));
-//													TablaValores->tabla_valores->insert(pair<string, BitSet*>($2, new BitSet(tFunc->getTipo()->size, 0)));
 												  }
-
 												  vectorId *vectorOut = $9;
 												  for (int x = 0; x < vectorOut->size(); x++){
 													string id = vectorOut->at(x);
@@ -214,9 +214,25 @@ function_declaration:		FUNCTION ID COLON LEFT_BRACKET id_list RIGHT_BRACKET ARRO
 													}
 													TablaTipos->insert(pair<string, Tipo*>(id,new Output(1)));
 												  }
+												  mapTipo *tablefunc = TablaTipos;
+												  TablaTipos = old;
 
 												  TablaTipos->insert(pair<string, Tipo*>($2, tFunc));
-												  $$ = new FunctionStmntST($2,$5,$9,$12);
+												  //-------------------------------------------
+												  mapBitSet *tablaValoresFN = new mapBitSet();
+
+												  for (int x = 0; x < vectorIn->size(); x++){
+													string id = vectorIn->at(x);
+													tablaValoresFN->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
+												  }
+												  for (int x = 0; x < vectorOut->size(); x++){
+													string id = vectorOut->at(x);
+													tablaValoresFN->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
+												  }
+ 												  FuncionValorST *fVal = new FuncionValorST(vectorIn, vectorOut, $12,tablaValoresFN);
+
+												  TablaFunciones->insert(pair<string, FuncionValor*>($2, fVal));*/
+												  $$ = new FunctionStmntST($2, $5, $9, $12, NULL);
 												}
 ;
 
@@ -236,19 +252,40 @@ truth_table: 			TRUTH_TABLE LEFT_KEY truth_table_list	RIGHT_KEY		{ $$ = $3; }
 ;
 
 truth_table_list:		truth_table_row							{
-												  TruthTable *tt = new TruthTable();
-												  tt->push_back($1);
-												  $$ = tt;				
+												  TruthTable *tt = new TruthTable(NULL, NULL);
+												  tt->input = new vectorBitSet();
+												  tt->output = new vectorBitSet();
+												  tt->input->push_back($1->input);
+												  tt->output->push_back($1->output);
+												  $$ = tt;
 												}
 				|truth_table_list truth_table_row				{
-												  TruthTable *tt = $1;
+												  /*TruthTable *tt = $1;
 												  tt->push_back($2);
+												  $$ = tt;*/
+												  TruthTable *tt = $1;
+												  tt->input->push_back($2->input);
+												  tt->output->push_back($2->output);
 												  $$ = tt;
 												}
 ;
 
 truth_table_row:		LEFT_BRACKET binary_number_list RIGHT_BRACKET ARROW
-				LEFT_BRACKET binary_number_list RIGHT_BRACKET			{ $$ = new TruthTableElem($2, $6); }
+				LEFT_BRACKET binary_number_list RIGHT_BRACKET			{
+												  vector<bool> *vIn = $2;
+												  vector<bool> *vOut = $6;
+												  BitSet *bIn = new BitSet();
+												  BitSet *bOut = new BitSet();
+
+												  for (int x = vIn->size() - 1; x >= 0; x--){
+													bIn->push_back(vIn->at(x));
+												  }
+
+												  for (int x = vOut->size() - 1; x >= 0; x--){
+													bOut->push_back(vOut->at(x));
+												  }
+												  $$ = new TruthTableElem(bIn, bOut);
+												}
 ;
 
 binary_number_list:		NUMBER								{

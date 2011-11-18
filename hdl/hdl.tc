@@ -16,9 +16,6 @@ typedef vector<Expr*> vectorExpr;
 typedef vector<string> vectorId;
 typedef vector<bool> vectorBool;
 
-class TruthTableElem;
-typedef vector<TruthTableElem*> TruthTable;
-
 class MetaType;
 typedef vector<MetaType*> vectorMetaType;
 
@@ -26,7 +23,7 @@ class Tipo;
 typedef map<string, Tipo*> mapTipo;
 
 typedef boost::dynamic_bitset<> BitSet;
-
+typedef vector<BitSet*> vectorBitSet;
 typedef map<string, BitSet*> mapBitSet;
 
 class FuncionValor;
@@ -43,6 +40,8 @@ extern mapFuncion *TablaFunciones;
 #include "hdl_tree.h"
 
 using namespace std;
+
+BitSet *globalVal;
 
 %}
 
@@ -94,9 +93,6 @@ using namespace std;
 	int lower;
 }
 
-//%node FunctionMetaType MetaType = {
-//}
-
 //--------------------getTipo()--------------------
 
 %operation %virtual Tipo *getTipo(MetaType *this)
@@ -140,10 +136,49 @@ Semantica(Program){
 	cout << "validacion semantica del main DONE" << endl;
 }
 
-%node FuncionValor %typedef = {
+%node FuncionValor %abstract %typedef
+
+%node FuncionValorTT FuncionValor = {
+	BitSet *input;
+	BitSet *output;
+	TruthTable *tt;
+}
+
+%node FuncionValorST FuncionValor = {
 	vectorId *input;
 	vectorId *output;
-	Statement *body;
+	Statement *stmnts;
+	mapBitSet *valores;
+}
+
+%operation %virtual BitSet* evalFunction(FuncionValor *this)
+
+evalFunction(FuncionValorTT){
+	unsigned long linput = input->to_ulong();
+
+	unsigned long loutput = 0;
+	for (int x = 0; x < input->size(); x++){
+		if (linput == tt->input->at(x)->to_ulong()){
+			output = tt->output->at(x);
+			break;
+		}
+	}
+	return output;
+}
+
+evalFunction(FuncionValorST){
+	mapBitSet *old = TablaValores;
+	TablaValores = valores;
+
+	//stmnts->interpret();
+
+	BitSet *res = new BitSet();
+	for (int x = 0; x > output->size(); x++){
+		BitSet *val = TablaValores->find(output->at(x))->second;
+		res->append(val->to_ulong());
+	}
+	TablaValores = old;
+	return res;
 }
 
 /*--------------------------------------------------------------------------------------
@@ -157,19 +192,19 @@ Semantica(Program){
 	Statement *stmnt2;
 }
 
-
-%node FunctionStmntTT Statement = {
+%node FunctionStmnt Statement %abstract = {
 	string Id;
 	vectorId *params;
 	vectorId *returns;
+}
+
+%node FunctionStmntTT FunctionStmnt = {
 	TruthTable *ttable;
 }
 
-%node FunctionStmntST Statement = {
-	string Id;
-	vectorId *params;
-	vectorId *returns;
+%node FunctionStmntST FunctionStmnt = {
 	Statement *stmnts;
+	mapTipo *tipos;
 }
 
 %node AssignStmnt Statement = {
@@ -188,9 +223,14 @@ Semantica(Program){
 				TRUTH_TABLE
 --------------------------------------------------------------------------------------*/
 
+%node TruthTable %typedef = {
+	vectorBitSet *input;
+	vectorBitSet *output;
+}
+
 %node TruthTableElem %typedef = {
-	vectorBool *in;
-	vectorBool *out;
+	BitSet *input;
+	BitSet *output;
 }
 
 //--------------------validarSemantica()--------------------
@@ -207,21 +247,59 @@ validarSemantica(SequenceStmnt){
 }
 
 validarSemantica(FunctionStmntST){
-//cout << "Entrando a validacion de FuncionST" << endl;
+/*	mapTipo *old = TablaTipos;
+	TablaTipos = tipos;
+cout << "Entrando a validacion de FuncionST" << endl;
 	stmnts->validarSemantica();
-//cout << "Saliendo de validacion de FuncionST" << endl;
+cout << "Saliendo de validacion de FuncionST" << endl;
+	TablaTipos = old;*/
+
+	FunctionTipo *tFunc = new FunctionTipo(params->size(), new Input(returns->size()), params, returns);
+
+	if (TablaTipos->count(Id) > 0){
+		cerr << "Funcion " << Id << " ya existe!!" << endl << endl;
+		exit(1);
+	}
+	mapTipo *old = TablaTipos;
+	TablaTipos = new map<string, Tipo*>();
+
+	for (int x = 0; x < params->size(); x++){
+		string id = params->at(x);
+		if (TablaTipos->count(id) > 0){
+			cerr << "Variable " << id << " ya existe!!" << endl << endl;
+			exit(1);
+		}
+		TablaTipos->insert(pair<string, Tipo*>(id,new Input(1)));
+	}
+
+	for (int x = 0; x < returns->size(); x++){
+		string id = returns->at(x);
+		if (TablaTipos->count(id) > 0){
+			cerr << "Variable " << id << " ya existe!!" << endl << endl;
+			exit(1);
+		}
+		TablaTipos->insert(pair<string, Tipo*>(id,new Output(1)));
+	}
+	tipos = TablaTipos;
+	TablaTipos = old;
+	TablaTipos->insert(pair<string, Tipo*>(Id, tFunc));
+
+	TablaTipos = tipos;
+	stmnts->validarSemantica();
+	TablaTipos = old;
 }
 
 validarSemantica(FunctionStmntTT){
+/*
 //cout << "Entrando a validacion de FuncionTT" << endl;
 
-	long inCount = ttable->at(0)->in->size();
+	long inCount = ttable->input->at(0)->size();
 	long paramCount = params->size();
 	if (inCount != paramCount){
 		cerr << "Cantidad de variables de entrada incorrecta!! tabla:" << inCount << " params:" << paramCount << endl << endl;
 		exit(1);
 	}
-	long outCount = ttable->at(0)->out->size();
+	long outCount = ttable->output->at(0)->size();
 	long retCount = returns->size();
 	if (outCount != retCount){
 		cerr << "Cantidad de variables de salida incorrecta!! tabla:" << outCount << " returns:" << retCount << endl << endl;
@@ -229,11 +307,43 @@ validarSemantica(FunctionStmntTT){
 	}
 	long s = params->size();
 	long filas = s*s;
-	if (ttable->size() != filas){
+	if (ttable->input->size() != filas){
 		cerr << "Cantidad de filas incorrecta en thruth_table!! filas: " << filas << endl << endl;
 		exit(1);
 	}
 //cout << "Saliendo de validacion de FuncionTT" << endl;
+*/
+
+	FunctionTipo *tFunc = new FunctionTipo(params->size(), new Input(returns->size()), params, returns);
+	if (TablaTipos->count(Id) > 0){
+		cerr << "Funcion " << Id << " ya existe!!" << endl << endl;
+		exit(1);
+	}
+	TablaTipos->insert(pair<string, Tipo*>(Id, tFunc));
+
+	FuncionValorTT *fVal = new FuncionValorTT(new BitSet(params->size(), 0), new BitSet(returns->size(), 0), ttable);
+	TablaFunciones->insert(pair<string, FuncionValor*>(Id, fVal));
+
+
+
+	long inCount = ttable->input->at(0)->size();
+	long paramCount = params->size();
+	if (inCount != paramCount){
+		cerr << "Cantidad de variables de entrada incorrecta!! tabla:" << inCount << " params:" << paramCount << endl << endl;
+		exit(1);
+	}
+	long outCount = ttable->output->at(0)->size();
+	long retCount = returns->size();
+	if (outCount != retCount){
+		cerr << "Cantidad de variables de salida incorrecta!! tabla:" << outCount << " returns:" << retCount << endl << endl;
+		exit(1);
+	}
+	long s = params->size();
+	long filas = s*s;
+	if (ttable->input->size() != filas){
+		cerr << "Cantidad de filas incorrecta en thruth_table!! filas: " << filas << endl << endl;
+		exit(1);
+	}
 }
 
 validarSemantica(AssignStmnt){
@@ -269,33 +379,40 @@ validarSemantica(WhenStmnt){
 
 //--------------------interpret()--------------------
 
-/*%operation %virtual void interpret(Statement *this)
+%operation %virtual void interpret(Statement *this)
 
-interpret(StatementSeq) {
-	if (stmnt1 != NULL)
-		stmnt1->interpret();
-	if (stmnt2 != NULL)
-		stmnt2->interpret();
+interpret(SequenceStmnt){
+
+}
+
+interpret(FunctionStmntST){
+	mapBitSet *tablaValoresFN = new mapBitSet();
+
+	for (int x = 0; x < params->size(); x++){
+		string id = params->at(x);
+		tablaValoresFN->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
+	}
+	for (int x = 0; x < returns->size(); x++){
+		string id = returns->at(x);
+		tablaValoresFN->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
+	}
+ 	FuncionValorST *fVal = new FuncionValorST(params, returns, stmnts,tablaValoresFN);
+
+	TablaFunciones->insert(pair<string, FuncionValor*>(Id, fVal));
+}
+
+interpret(FunctionStmntTT){
+	FuncionValorTT *fVal = new FuncionValorTT(new BitSet(params->size(), 0), new BitSet(returns->size(), 0), ttable);
+	TablaFunciones->insert(pair<string, FuncionValor*>(Id, fVal));
 }
 
 interpret(AssignStmnt){
-	//nada
+
 }
 
 interpret(WhenStmnt){
-	int val = cond->eval();
-	if (val > 0){
-		if (stmnt1 != NULL)
-			stmnt1->interpret();
-	} else {
-		if (stmnt2 != NULL)
-			stmnt2->interpret();
-	}
-}
 
-interpret(TruthTableStmnt){
-	
-}*/
+}
 
 /*--------------------------------------------------------------------------------------
 					Expresiones
@@ -341,8 +458,9 @@ interpret(TruthTableStmnt){
 	BitSet *bs;
 }
 
+%node LValues Expr %abstract %typedef
 
-%node ReferenceAccess Expr %abstract %typedef = {
+%node ReferenceAccess LValues %abstract %typedef = {
 	string lexeme;
 }
 
@@ -357,12 +475,31 @@ interpret(TruthTableStmnt){
 	int index2;
 }
 
-%node SetExpr Expr = {
+%node SetExpr LValues = {
 	vectorExpr *exprs;
 }
 
-%node FuncCallExpr ReferenceAccess = {
+%node FuncCallExpr Expr %typedef = {
+	string lexeme;
 	vectorExpr *exprs;
+}
+
+%operation %virtual void SetElem(LValues *this)
+
+SetElem(IdExpr){
+	TablaValores->insert(pair<string, BitSet*>(lexeme, globalVal));
+}
+
+SetElem(ArrayIndexExpr){
+	TablaValores->insert(pair<string, BitSet*>(lexeme, new BitSet(1,globalVal[index].to_ulong())));
+}
+
+SetElem(SetExpr){
+	BitSet *old = globalVal;
+
+	for (int x = 0; x < exprs->size(); x++){
+		//------------------------
+	}
 }
 
 //--------------------validarSemantico()--------------------
@@ -422,6 +559,10 @@ validarSemantico(FuncCallExpr){
 	}
 	Tipo *t = TablaTipos->find(lexeme)->second;
 
+	if (t->getKind() != FunctionTipo_kind){
+		cerr << "El id no es de tipo funcion: " << lexeme << endl << endl;
+		exit(1);
+	}
 	FunctionTipo *tfunc;
 	tfunc = reinterpret_cast<FunctionTipo*>(t);
 
@@ -618,9 +759,9 @@ eval(ModExpr) {
 
 eval(NegateExpr){
 	BitSet *v = expr->eval();
-	BitSet *res = new BitSet(v->size(),0);
-	*res = *v;
-	res->flip();
+	BitSet *res;// = new BitSet(v->size(),0);
+	res = (v->flip()).to_ulong() + new BitSet(v->size(),1);
+	//res->flip();
 	return res;
 }
 eval(NotExpr) {
@@ -633,21 +774,35 @@ eval(NumExpr) {
 }
 
 eval(IdExpr) {
-	return NULL; //tmp
+	return TablaValores->find(lexeme)->second;
 }
 
 eval(FuncCallExpr) {
-	return NULL; //tmp
+	FuncionValor *fval = TablaFunciones->find(lexeme)->second;
+	return fval->evalFunction();
 }
 
 eval(ArrayIndexExpr) {
-	return NULL; //tmp
+	BitSet *res = TablaValores->find(lexeme)->second;
+	return new BitSet(1, res[index].to_ulong());
 }
 
 eval(ArraySubSetExpr) {
-	return NULL; //tmp
+	BitSet *res = new BitSet();
+	BitSet *b = TablaValores->find(lexeme)->second;
+
+	for (int x = index2; x >= index; x--){
+		bool val = b->test(x);
+		res->push_back(val);
+	}
+	return res;
 }
 
 eval(SetExpr) {
-	return NULL; //tmp
+	BitSet *res = new BitSet();
+	for (int x = 0; x < exprs->size(); x++){
+		BitSet *exp = exprs->at(x)->eval();
+		res->append(exp->to_ulong());
+	}
+	return res;
 }
