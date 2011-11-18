@@ -111,7 +111,7 @@ getTipo(ArrayMetaType){
 --------------------------------------------------------------------------------------*/
 %node Program %typedef = {
 	string moduleName;
-	mapTipo *mapa;
+	Statement *variableDeclaration;
 	Statement *functionDeclaration;
 	Statement *main;
 }
@@ -119,11 +119,10 @@ getTipo(ArrayMetaType){
 %operation %virtual void Semantica(Program *this)
 
 Semantica(Program){
-	if (mapa == NULL){
-		cerr << "Tabla de Simbolos NULA!!" << endl << endl;
-		exit(1);
-	}
-		
+	
+	variableDeclaration->validarSemantica();
+	cout << "validacion semantica de variables DONE" << endl;
+
 	if (functionDeclaration != NULL)
 		functionDeclaration->validarSemantica();
 	cout << "validacion semantica de funciones DONE" << endl;
@@ -192,6 +191,10 @@ evalFunction(FuncionValorST){
 	Statement *stmnt2;
 }
 
+%node VariableDeclarationStmnt Statement = {
+	vectorMetaType *metatipos;
+}
+
 %node FunctionStmnt Statement %abstract = {
 	string Id;
 	vectorId *params;
@@ -246,14 +249,20 @@ validarSemantica(SequenceStmnt){
 //cout << "Saliendo de validacion SEQ" << endl;
 }
 
-validarSemantica(FunctionStmntST){
-/*	mapTipo *old = TablaTipos;
-	TablaTipos = tipos;
-cout << "Entrando a validacion de FuncionST" << endl;
-	stmnts->validarSemantica();
-cout << "Saliendo de validacion de FuncionST" << endl;
-	TablaTipos = old;*/
+validarSemantica(VariableDeclarationStmnt){
+	for (int x = 0; x < metatipos->size(); x++){
+		MetaType *mt = metatipos->at(x);
+		if (TablaTipos->count(mt->lexeme) > 0){
+			cerr << "Variable " << mt->lexeme << " ya existe!!" << endl << endl;
+			exit(1);
+		}
+		TablaTipos->insert(pair<string, Tipo*>(mt->lexeme, mt->getTipo()));
+												
+//		TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
+	}
+}
 
+validarSemantica(FunctionStmntST){
 	FunctionTipo *tFunc = new FunctionTipo(params->size(), new Input(returns->size()), params, returns);
 
 	if (TablaTipos->count(Id) > 0){
@@ -290,30 +299,6 @@ cout << "Saliendo de validacion de FuncionST" << endl;
 }
 
 validarSemantica(FunctionStmntTT){
-/*
-//cout << "Entrando a validacion de FuncionTT" << endl;
-
-	long inCount = ttable->input->at(0)->size();
-	long paramCount = params->size();
-	if (inCount != paramCount){
-		cerr << "Cantidad de variables de entrada incorrecta!! tabla:" << inCount << " params:" << paramCount << endl << endl;
-		exit(1);
-	}
-	long outCount = ttable->output->at(0)->size();
-	long retCount = returns->size();
-	if (outCount != retCount){
-		cerr << "Cantidad de variables de salida incorrecta!! tabla:" << outCount << " returns:" << retCount << endl << endl;
-		exit(1);
-	}
-	long s = params->size();
-	long filas = s*s;
-	if (ttable->input->size() != filas){
-		cerr << "Cantidad de filas incorrecta en thruth_table!! filas: " << filas << endl << endl;
-		exit(1);
-	}
-//cout << "Saliendo de validacion de FuncionTT" << endl;
-*/
-
 	FunctionTipo *tFunc = new FunctionTipo(params->size(), new Input(returns->size()), params, returns);
 	if (TablaTipos->count(Id) > 0){
 		cerr << "Funcion " << Id << " ya existe!!" << endl << endl;
@@ -383,6 +368,13 @@ validarSemantica(WhenStmnt){
 
 interpret(SequenceStmnt){
 
+}
+
+interpret(VariableDeclarationStmnt){
+	for (int x = 0; x < metatipos->size(); x++){
+		MetaType *mt = metatipos->at(x);
+		TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
+	}
 }
 
 interpret(FunctionStmntST){
