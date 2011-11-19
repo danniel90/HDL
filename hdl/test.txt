@@ -1,15 +1,26 @@
-module Multiplexor4to1;
+module FullAdder1Bit_TT;
 var
-	a, b, c, d: input;
-	s[1..0]: input;
-	r: output;
+    a, b, ci: temp;
+    r, co: output;
+
+function fulladder: [x, y, carry_in] -> [result, carry_out]
 begin
-	when s == ^2b00 then
-		r = a;
-	else when s == ^2b01 then
-		r = b;
-	else when s ==  ^2b10 then
-		r = c;
-	else
-		r = d;
+    truth_table {
+        [0, 0, 0] -> [0, 0]
+        [0, 0, 1] -> [1, 0]
+        [0, 1, 0] -> [1, 0]
+        [0, 1, 1] -> [0, 1]
+        [1, 0, 0] -> [1, 0]
+        [1, 0, 1] -> [0, 1]
+        [1, 1, 0] -> [0, 1]
+        [1, 1, 1] -> [0, 1]
+        [1, 1, 1] -> [1, 1]
+    }
+end
+
+begin
+    a = ^1b0;
+    b = ^1b1;
+    ci = ^1b0;
+    [r, co] = fulladder(a, b, ci);
 end

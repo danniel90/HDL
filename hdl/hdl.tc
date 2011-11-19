@@ -30,7 +30,7 @@ class FuncionValor;
 typedef map<string, FuncionValor*> mapFuncion;
 
 extern mapTipo *TablaTipos;
-extern mapBitSet *TablaValores;
+extern mapBitSet TablaValores;
 extern mapFuncion *TablaFunciones;
 
 %}
@@ -122,7 +122,7 @@ getTipo(ArrayMetaType){
 
 Semantica(Program){
 	TablaTipos = new map<string, Tipo*>(); cout << "Init Symbol Table" << endl;
-	TablaValores = new map<string, BitSet*>();
+	//TablaValores = new map<string, BitSet*>();
 	TablaFunciones = new map<string, FuncionValor*>();
 	
 	variableDeclaration->validarSemantica();
@@ -130,7 +130,7 @@ Semantica(Program){
 
 	if (functionDeclaration != NULL){
 		functionDeclaration->validarSemantica();
-		cout << "validacion semantica de funciones DONE" << endl;
+		cout << "validacion semantica de funciones DONE K:" << functionDeclaration->getKind() << endl;
 	}
 
 	if (main == NULL){
@@ -149,7 +149,7 @@ Interpretacion(Program){
 	cout << endl << endl << "Interpretacion de variables DONE" << endl;
 
 	if (functionDeclaration != NULL){
-		functionDeclaration->validarSemantica();
+		functionDeclaration->interpret();
 		cout << "Interpretacion de funciones DONE" << endl;
 	}
 
@@ -172,7 +172,7 @@ Interpretacion(Program){
 	vectorId *input;
 	vectorId *output;
 	Statement *stmnts;
-	mapBitSet *valores;
+	mapBitSet valores;
 }
 
 //--------------------evalFunction()--------------------
@@ -180,30 +180,35 @@ Interpretacion(Program){
 %operation %virtual BitSet* evalFunction(FuncionValor *this)
 
 evalFunction(FuncionValorTT){
+cout << "Entrando eval FUNCVALORTT" << endl;
 	unsigned long linput = input->to_ulong();
+	cout << "linput: " << linput << endl;
 
 	unsigned long loutput = 0;
-	for (int x = 0; x < input->size(); x++){
+	for (int x = 0; x < tt->input->size(); x++){
 		if (linput == tt->input->at(x)->to_ulong()){
 			output = tt->output->at(x);
 			break;
 		}
 	}
+cout << "Saliendo eval FUNCVALORTT" << endl;
 	return output;
 }
 
 evalFunction(FuncionValorST){
-	mapBitSet *old = TablaValores;
+//cout << "Entrando eval FUNCVALORST" << endl;
+	mapBitSet old = TablaValores;//mapBitSet *old = TablaValores;
 	TablaValores = valores;
 
 	stmnts->interpret();
 
 	BitSet *res = new BitSet();
-	for (int x = 0; x > output->size(); x++){
-		BitSet *val = TablaValores->find(output->at(x))->second;
-		res->append(val->to_ulong());
+	for (int x = 0; x < output->size(); x++){
+		BitSet *val = TablaValores[output->at(x)];//->find(output->at(x))->second;
+		res->push_back(val);
 	}
 	TablaValores = old;
+//cout << "Saliendo eval FUNCVALORST returning : " << *res << endl;
 	return res;
 }
 
@@ -237,13 +242,15 @@ evalFunction(FuncionValorST){
 	mapTipo *tipos;
 }
 
-%node AssignStmnt Statement = {
+%node StatementPR Statement %abstract %typedef
+
+%node AssignStmnt StatementPR = {
 	Expr *lvalue;
 	Expr *rvalue;
 }
 
 
-%node WhenStmnt Statement = {
+%node WhenStmnt StatementPR = {
 	Expr *cond;
 	Statement *true_block;
 	Statement *false_block;
@@ -268,12 +275,14 @@ evalFunction(FuncionValorST){
 %operation %virtual void validarSemantica(Statement *this)
 
 validarSemantica(SequenceStmnt){
-//cout << "Entrando a validacion SEQ" << endl;
-	if (stmnt1 != NULL)
+	if (stmnt1 != NULL) {
 		stmnt1->validarSemantica();
-	if (stmnt2 != NULL)
+		cout << "Saliendo de validacion1 K: " << stmnt1->getKind() << endl;
+	}
+	if (stmnt2 != NULL) {
 		stmnt2->validarSemantica();
-//cout << "Saliendo de validacion SEQ" << endl;
+		cout << "Saliendo de validacion2 K: " << stmnt2->getKind() << endl;
+	}
 }
 
 validarSemantica(VariableDeclarationStmnt){
@@ -293,7 +302,7 @@ validarSemantica(FunctionStmntST){
 	FunctionTipo *tFunc = new FunctionTipo(params->size(), new Input(returns->size()), params, returns);
 
 	if (TablaTipos->count(Id) > 0){
-		cerr << "Funcion " << Id << " ya existe!!" << endl << endl;
+		cerr << "Funcion " << Id << " ya existe!! FST" << endl << endl;
 		exit(1);
 	}
 	mapTipo *old = TablaTipos;
@@ -302,7 +311,7 @@ validarSemantica(FunctionStmntST){
 	for (int x = 0; x < params->size(); x++){
 		string id = params->at(x);
 		if (TablaTipos->count(id) > 0){
-			cerr << "Variable " << id << " ya existe!!" << endl << endl;
+			cerr << "Variable " << id << " ya existe!! FST" << endl << endl;
 			exit(1);
 		}
 		TablaTipos->insert(pair<string, Tipo*>(id,new Input(1)));
@@ -311,7 +320,7 @@ validarSemantica(FunctionStmntST){
 	for (int x = 0; x < returns->size(); x++){
 		string id = returns->at(x);
 		if (TablaTipos->count(id) > 0){
-			cerr << "Variable " << id << " ya existe!!" << endl << endl;
+			cerr << "Variable " << id << " ya existe!! FST" << endl << endl;
 			exit(1);
 		}
 		TablaTipos->insert(pair<string, Tipo*>(id,new Output(1)));
@@ -328,7 +337,7 @@ validarSemantica(FunctionStmntST){
 validarSemantica(FunctionStmntTT){
 	FunctionTipo *tFunc = new FunctionTipo(params->size(), new Input(returns->size()), params, returns);
 	if (TablaTipos->count(Id) > 0){
-		cerr << "Funcion " << Id << " ya existe!!" << endl << endl;
+		cerr << "Funcion " << Id << " ya existe!! FTT" << endl << endl;
 		exit(1);
 	}
 	TablaTipos->insert(pair<string, Tipo*>(Id, tFunc));
@@ -404,20 +413,20 @@ interpret(SequenceStmnt){
 interpret(VariableDeclarationStmnt){
 	for (int x = 0; x < metatipos->size(); x++){
 		MetaType *mt = metatipos->at(x);
-		TablaValores->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
+		TablaValores[mt->lexeme] = new BitSet(mt->getTipo()->size, 0);//->insert(pair<string, BitSet*>(mt->lexeme, new BitSet(mt->getTipo()->size, 0)));
 	}
 }
 
 interpret(FunctionStmntST){
-	mapBitSet *tablaValoresFN = new mapBitSet();
+	mapBitSet tablaValoresFN;// = new mapBitSet();
 
 	for (int x = 0; x < params->size(); x++){
 		string id = params->at(x);
-		tablaValoresFN->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
+		tablaValoresFN[id] = new BitSet(1, 0);//->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
 	}
 	for (int x = 0; x < returns->size(); x++){
 		string id = returns->at(x);
-		tablaValoresFN->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
+		tablaValoresFN[id] = new BitSet(1, 0);//->insert(pair<string, BitSet*>(id, new BitSet(1, 0)));
 	}
  	FuncionValorST *fVal = new FuncionValorST(params, returns, stmnts,tablaValoresFN);
 
@@ -432,8 +441,12 @@ interpret(FunctionStmntTT){
 interpret(AssignStmnt){
 	LValues *lval = reinterpret_cast<LValues*>(lvalue);
 	if (lval == NULL){ cerr << "Error en casteo de lval" << endl << endl; }
+
+	BitSet *oldVal = globalVal;
 	globalVal = rvalue->eval();
+	cout << "ASSIGNSTMNT rvalue: " << *globalVal << endl;
 	lval->SetElem();
+	globalVal = oldVal;
 }
 
 interpret(WhenStmnt){
@@ -445,6 +458,17 @@ interpret(WhenStmnt){
 		if (false_block != NULL)
 			false_block->interpret();
 	}
+}
+
+//--------------------print()--------------------
+%operation %virtual void print(StatementPR *this)
+
+print(AssignStmnt){
+
+}
+
+print(WhenStmnt){
+
 }
 
 /*--------------------------------------------------------------------------------------
@@ -522,41 +546,42 @@ interpret(WhenStmnt){
 %operation %virtual void SetElem(LValues *this)
 
 SetElem(SetExpr){
+cout << "In SetElem SetExpr GBLVAL : " << *globalVal << endl;
 	BitSet *oldGVal = globalVal;
-	//int oGSize = oldGVal->size();
-	int count = 0;
-
-	//while (count < oGSize){
-		for (int x = 0; x < exprs->size(); x++){
-			BitSet *b = exprs->at(x)->eval();
-			for (int y = 0; y > b->size(); y++){
-				(*b)[y] = (*oldGVal)[count++];
-			}
-			globalVal = b;
-			ReferenceAccess *r = reinterpret_cast<ReferenceAccess*>(exprs->at(x));
-
-			if (r == NULL){ cerr << "Error en casteo de expr a refaccess!!" << endl << endl; exit(1); }
-			r->SetElem();
-			globalVal = oldGVal;
+	int count = globalVal->size()-1;
+	
+	for (int x = exprs->size()-1; x >= 0; x--){
+		BitSet *b = exprs->at(x)->eval();
+		for (int y = 0; y < b->size(); y++){
+			cout << "appending " << (*oldGVal)[count] << endl;
+			(*b)[y] = (*oldGVal)[count--];
 		}
-	//}
+		globalVal = b;
+		ReferenceAccess *r = reinterpret_cast<ReferenceAccess*>(exprs->at(x));
+
+		if (r == NULL){ cerr << "Error en casteo de expr a refaccess!!" << endl << endl; exit(1); }
+		r->SetElem();
+		globalVal = oldGVal;
+	}
+cout << "out SetElem SetExpr" << endl;
 }
 
 SetElem(IdExpr){
-	TablaValores->insert(pair<string, BitSet*>(lexeme, globalVal));
+	cout << "SetElem IDExpr globalVal = " << *(globalVal) << endl;
+	TablaValores[lexeme] = globalVal;//->insert(pair<string, BitSet*>(lexeme, globalVal));
 }
 
 SetElem(ArrayIndexExpr){
-	TablaValores->insert(pair<string, BitSet*>(lexeme, new BitSet(1,globalVal[index].to_ulong())));
+	TablaValores[lexeme] = new BitSet(1,globalVal[index].to_ulong());//->insert(pair<string, BitSet*>(lexeme, new BitSet(1,globalVal[index].to_ulong())));
 }
 
 SetElem(ArraySubSetExpr){
-	BitSet *oldVal = TablaValores->find(lexeme)->second;
+	BitSet *oldVal = TablaValores[lexeme];//->find(lexeme)->second;
 
 	for (int x = index; x >= index2; x--){
 		(*oldVal)[x] = (*globalVal)[x];
 	}
-	TablaValores->insert(pair<string, BitSet*>(lexeme, new BitSet(1,oldVal->to_ulong())));
+	TablaValores[lexeme] = new BitSet(1,oldVal->to_ulong());//->insert(pair<string, BitSet*>(lexeme, new BitSet(1,oldVal->to_ulong())));
 }
 
 //--------------------validarSemantico()--------------------
@@ -586,10 +611,7 @@ validarSemantico(ModExpr) {
 		cerr << "Sizes incompatibles en la expresion!! t1: " << t1->size << " t2: " << t2->size << endl << endl;
 		exit(1);
 	}
-	if ((t1->getKind() != Input_kind) || (t2->getKind() != Input_kind)){
-		cerr << "Operando deberia ser de tipo Input!! tk1: " << t1->getKind() << " tk2:" << t2->getKind() << endl << endl;
-		exit(1);
-	}
+
 	return t1;
 }
 
@@ -758,8 +780,8 @@ eval(DivExpr),
 eval(ModExpr) {
 	BitSet *v1 = exprLeft->eval();
 	BitSet *v2 = exprRight->eval();
-	
-
+	cout << "BinExpr v1 = " << *(v1) << " | v2 = " << *(v2) << endl;
+//	BitSet *res;
         switch (getKind()) {
 		case GreaterExpr_kind:		return new BitSet(v1->size(), (v1 > v2));
 		case GreaterEqualExpr_kind:	return new BitSet(v1->size(), (v1 >= v2));
@@ -784,6 +806,32 @@ eval(ModExpr) {
 		
 		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
         }
+/*	switch (getKind()) {
+		case GreaterExpr_kind:		res = new BitSet(v1->size(), (v1 > v2));
+		case GreaterEqualExpr_kind:	res = new BitSet(v1->size(), (v1 >= v2));
+		case LessExpr_kind:		res = new BitSet(v1->size(), (v1 < v2));
+		case LessEqualExpr_kind:	res = new BitSet(v1->size(), (v1 <= v2));
+		case EqualExpr_kind:		res = new BitSet(v1->size(), (v1 == v2));
+		case NotEqualExpr_kind:		res = new BitSet(v1->size(), (v1 != v2));
+
+		case ShiftLeftExpr_kind:	res = new BitSet(v1->size() ,(*v1 << v2->to_ulong()).to_ulong());
+		case ShiftRightExpr_kind:	res = new BitSet(v1->size(), (*v1 >> v2->to_ulong()).to_ulong());
+
+		case AndExpr_kind:		res = new BitSet(v1->size(), (*v1 & *v2).to_ulong());
+		case OrExpr_kind:		res = new BitSet(v1->size(), (*v1 | *v2).to_ulong());	cout << "BinExpr RES = " << *(res) << endl;
+		case XorExpr_kind:		res = new BitSet(v1->size(), (*v1 ^ *v2).to_ulong());
+		case XnorExpr_kind:		res = new BitSet(v1->size(), !(*v1 ^ *v2).to_ulong());
+
+		case AddExpr_kind:		res = new BitSet(v1->size(), (v1->to_ulong() + v2->to_ulong()));
+		case SubExpr_kind:		res = new BitSet(v1->size(), (v1->to_ulong() - v2->to_ulong()));
+		case MultExpr_kind:		res = new BitSet(v1->size(), (v1->to_ulong() * v2->to_ulong()));
+		case DivExpr_kind:		res = new BitSet(v1->size(), (v1->to_ulong() / v2->to_ulong()));
+		case ModExpr_kind:		res = new BitSet(v1->size(), (v1->to_ulong() % v2->to_ulong()));
+		
+		default:			cerr << "Error Expresion en evaluacion Binaria!!" << endl << endl; exit(1);
+        }
+	cout << "BinExpr RES = " << *(res) << endl;
+	return res;*/
 
 }
 
@@ -804,35 +852,50 @@ eval(NumExpr) {
 }
 
 eval(IdExpr) {
-	return TablaValores->find(lexeme)->second;
+	BitSet *b = TablaValores[lexeme];//TablaValores->find(lexeme)->second;
+	cout << "IdExpr " << lexeme << " = " << *(b) << endl;
+	return b;
 }
 
 eval(FuncCallExpr) {
+	cout << "eval FUNCCALL" << endl;
 	FuncionValor *fval = TablaFunciones->find(lexeme)->second;
 
 	if (fval->getKind() == FuncionValorST_kind){
+		cout << "eval FUNC is ST" << endl;
 		FuncionValorST *fst = reinterpret_cast<FuncionValorST*>(fval);
 
 		if (fst == NULL) { cerr << "Error en casteo de fst" << endl << endl; exit(1); }
 		for (int x = 0; x < exprs->size(); x++){
 			BitSet *b = exprs->at(x)->eval();
-			fst->valores->insert(pair<string, BitSet*>(fst->input->at(x), b));
+			fst->valores[fst->input->at(x)] = b;//->insert(pair<string, BitSet*>(fst->input->at(x), b));
 		}
 		for (int x = 0; x < fst->output->size(); x++){
-			fst->valores->insert(pair<string, BitSet*>(fst->output->at(x), new BitSet(1,0)));
+			fst->valores[fst->output->at(x)] = new BitSet(1,0);//->insert(pair<string, BitSet*>(fst->output->at(x), new BitSet(1,0)));
 		}
+	} else {
+		FuncionValorTT *ftt = reinterpret_cast<FuncionValorTT*>(fval);
+
+		if (ftt == NULL) { cerr << "Error en casteo de ftt" << endl << endl; exit(1); }
+
+		BitSet *paramb = new BitSet();
+		for (int x = exprs->size() - 1; x >= 0; x--){
+			BitSet *b = exprs->at(x)->eval();
+			paramb->push_back(b->to_ulong());
+		}
+		ftt->input = paramb;
 	}
 	return fval->evalFunction();
 }
 
 eval(ArrayIndexExpr) {
-	BitSet *res = TablaValores->find(lexeme)->second;
+	BitSet *res = TablaValores[lexeme];//->find(lexeme)->second;
 	return new BitSet(1, res[index].to_ulong());
 }
 
 eval(ArraySubSetExpr) {
 	BitSet *res = new BitSet();
-	BitSet *b = TablaValores->find(lexeme)->second;
+	BitSet *b = TablaValores[lexeme];//->find(lexeme)->second;
 
 	for (int x = index2; x >= index; x--){
 		bool val = b->test(x);

@@ -18,7 +18,7 @@ using namespace std;
 int yylex();
 
 mapTipo *TablaTipos;
-mapBitSet *TablaValores;
+mapBitSet TablaValores;
 mapFuncion *TablaFunciones;
 
 void yyerror(const char *message)
@@ -89,6 +89,9 @@ program:	MODULE ID SEMI
 												  cout << "Validacion Semantica Exitosa!! :)" << endl;
 												  p->Interpretacion();
 												  cout << "Interpretacion Exitosa!! :OO :)" << endl;
+map<string, BitSet*>::iterator it;
+for ( it=TablaValores.begin() ; it != TablaValores.end(); it++ )
+    cout << (*it).first << " => " << *((*it).second) << endl;
 												  $$ = p;
 												}
 ;
